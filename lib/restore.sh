@@ -49,6 +49,45 @@ ensure_snapshot_exists() {
   fi
 }
 
+# Resolve the local restored path for an original configured path.
+# Supports both direct layout (${target_dir}${original_path}) and staged snapshot layouts.
+resolve_restored_local_path() {
+  local target_dir="$1"
+  local original_path="$2"
+
+  local direct_path="${target_dir}${original_path}"
+  if [[ -e "${direct_path}" ]]; then
+    printf '%s\n' "${direct_path}"
+    return 0
+  fi
+
+  local suffix="${original_path#/}"
+  local -a matches=()
+  local candidate
+
+  while IFS= read -r candidate; do
+    [[ -n "${candidate}" ]] && matches+=("${candidate}")
+  done < <(find "${target_dir}" -mindepth 1 -path "*/${suffix}" -print 2>/dev/null)
+
+  if ((${#matches[@]} == 1)); then
+    printf '%s\n' "${matches[0]}"
+    return 0
+  fi
+
+  if ((${#matches[@]} > 1)); then
+    for candidate in "${matches[@]}"; do
+      if [[ "${candidate}" == *"/tmp/stage-"*"/${suffix}" ]]; then
+        printf '%s\n' "${candidate}"
+        return 0
+      fi
+    done
+    printf '%s\n' "${matches[0]}"
+    return 0
+  fi
+
+  return 1
+}
+
 # Copy restored paths from local restore target back to the remote server.
 push_restored_paths_to_remote() {
   local target_dir="$1"
@@ -70,9 +109,7 @@ push_restored_paths_to_remote() {
 
   local original_path local_path
   for original_path in "${paths[@]}"; do
-    local_path="${target_dir}${original_path}"
-
-    [[ -e "${local_path}" ]] || die "Restored path missing locally: ${local_path}"
+    local_path="$(resolve_restored_local_path "${target_dir}" "${original_path}")" || die "Restored path missing locally for ${original_path} under ${target_dir}"
 
     if [[ "${dry_run_mode}" == "yes" ]]; then
       msg_progress "DRY-RUN push preview to ${user}@${host}:${original_path}"
