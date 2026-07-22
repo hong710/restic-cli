@@ -1,0 +1,11 @@
+[Unit]
+Description=Run restic-scheduler periodically
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=1min
+Persistent=true
+Unit=restic-scheduler.service
+
+[Install]
+WantedBy=timers.target

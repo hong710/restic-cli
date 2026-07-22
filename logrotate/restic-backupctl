@@ -1,0 +1,9 @@
+/home/sdb/dev/restic_backup/logs/backup.log /home/sdb/dev/restic_backup/logs/backup-*.log /home/sdb/dev/restic_backup/logs/restore-*.log {
+    daily
+    rotate 30
+    missingok
+    notifempty
+    compress
+    delaycompress
+    copytruncate
+}

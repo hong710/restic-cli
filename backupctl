@@ -1,0 +1,143 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+# Resolve symlinks so backupctl works when invoked from /usr/local/bin.
+ROOT_DIR="$(cd -- "$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")" && pwd)"
+LIB_DIR="${ROOT_DIR}/lib"
+
+# shellcheck disable=SC1091
+source "${LIB_DIR}/common.sh"
+# shellcheck disable=SC1091
+source "${LIB_DIR}/setup.sh"
+# shellcheck disable=SC1091
+source "${LIB_DIR}/backup.sh"
+# shellcheck disable=SC1091
+source "${LIB_DIR}/restore.sh"
+# shellcheck disable=SC1091
+source "${LIB_DIR}/manage.sh"
+# shellcheck disable=SC1091
+source "${LIB_DIR}/scheduler.sh"
+
+# Print CLI usage.
+print_usage() {
+  cat <<'EOF'
+backupctl - centralized Restic backup controller
+
+Usage:
+  backupctl setup
+  backupctl servers
+  backupctl remove <server_name>
+  backupctl backup [server_name]
+  backupctl run-due
+  backupctl snapshots [server_name]
+  backupctl restore [server_name] [snapshot_id] [--dry-run]
+  backupctl restore [server_name] --dry-run
+
+Commands:
+  setup    Interactive server configuration wizard
+  servers  List configured servers included in backup runs
+  remove   Remove server from backup list (keeps repository data)
+  backup   Run backups for all configured servers or one server
+  run-due  Run backups only for servers whose configured frequency is due
+  snapshots  Show snapshots for one server or all servers
+  restore  Restore latest or specific snapshot, optionally in dry-run preview mode
+EOF
+}
+
+# Validate top-level command input.
+validate_command() {
+  local cmd="${1:-}"
+  case "${cmd}" in
+    setup|servers|remove|backup|run-due|snapshots|restore)
+      return 0
+      ;;
+    ""|-h|--help)
+      print_usage
+      exit 0
+      ;;
+    *)
+      msg_error "Unknown command: ${cmd}"
+      print_usage
+      exit 2
+      ;;
+  esac
+}
+
+# Dispatch command to implementation modules.
+main() {
+  ensure_project_directories
+
+  local command="${1:-}"
+  local target="${2:-}"
+  local extra="${3:-}"
+  local extra2="${4:-}"
+
+  validate_command "${command}"
+
+  case "${command}" in
+    setup)
+      if [[ -n "${target}" ]]; then
+        die "setup does not accept extra arguments."
+      fi
+      run_setup_wizard
+      ;;
+    servers)
+      if [[ -n "${target}" ]]; then
+        die "servers does not accept extra arguments."
+      fi
+      run_servers
+      ;;
+    remove)
+      [[ -n "${target}" ]] || die "remove requires server_name."
+      if [[ -n "${extra}" ]]; then
+        die "remove accepts only one server_name argument."
+      fi
+      run_remove_server "${target}"
+      ;;
+    backup)
+      if [[ -n "${extra}" ]]; then
+        die "backup accepts at most one server_name argument."
+      fi
+      run_backup "${target}"
+      ;;
+    run-due)
+      if [[ -n "${target}" ]]; then
+        die "run-due does not accept extra arguments."
+      fi
+      run_due_backups
+      ;;
+    snapshots)
+      if [[ -n "${extra}" ]]; then
+        die "snapshots accepts at most one server_name argument."
+      fi
+      run_snapshots "${target}"
+      ;;
+    restore)
+      local snapshot_arg=""
+      local dry_run_arg="no"
+
+      if [[ -n "${extra2}" && "${extra2}" != "--dry-run" ]]; then
+        die "restore only accepts optional --dry-run as the final argument."
+      fi
+
+      if [[ "${extra}" == "--dry-run" ]]; then
+        snapshot_arg="latest"
+        dry_run_arg="yes"
+      elif [[ -n "${extra}" ]]; then
+        snapshot_arg="${extra}"
+        if [[ "${extra2}" == "--dry-run" ]]; then
+          dry_run_arg="yes"
+        fi
+      elif [[ "${extra2}" == "--dry-run" ]]; then
+        die "restore argument order invalid. Use: restore [server] [snapshot] [--dry-run]"
+      fi
+
+      run_restore "${target}" "${snapshot_arg}" "${dry_run_arg}"
+      ;;
+    *)
+      die "Internal error: command dispatcher reached unexpected path."
+      ;;
+  esac
+}
+
+main "$@"

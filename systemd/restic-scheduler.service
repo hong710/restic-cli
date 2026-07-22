@@ -1,0 +1,13 @@
+[Unit]
+Description=restic-scheduler backup frequency runner
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/restic-backupctl run-due
+User=root
+Group=root
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
