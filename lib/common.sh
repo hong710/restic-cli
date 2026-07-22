@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-# Shared utilities for backupctl modules.
+# Shared utilities for restic-cli modules.
 # shellcheck disable=SC2034
-BACKUPCTL_VERSION="1.0.0"
+RESTIC_CLI_VERSION="1.0.0"
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
@@ -168,7 +168,7 @@ load_global_config() {
   ensure_project_directories
 
   if [[ ! -f "${GLOBAL_CONFIG_FILE}" ]]; then
-    die "Global config missing: ${GLOBAL_CONFIG_FILE}. Run backupctl init first."
+    die "Global config missing: ${GLOBAL_CONFIG_FILE}. Run restic-cli init first."
   fi
 
   # shellcheck disable=SC1090

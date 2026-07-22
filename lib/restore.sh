@@ -208,7 +208,7 @@ choose_server_interactive() {
     [[ -n "${server}" ]] && servers+=("${server}")
   done < <(list_server_names)
 
-  ((${#servers[@]} > 0)) || die "No servers configured. Run backupctl setup first."
+  ((${#servers[@]} > 0)) || die "No servers configured. Run restic-cli setup first."
 
   msg_info "Available servers:" >&2
   local i=1
@@ -233,7 +233,7 @@ run_restore() {
   install_error_trap
   install_signal_traps
 
-  print_header "backupctl restore"
+  print_header "restic-cli restore"
 
   load_global_config
   ensure_local_restic

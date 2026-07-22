@@ -1,43 +1,43 @@
-# backupctl Cheat Sheet
+# restic-cli Cheat Sheet
 
 ## Install (backup server)
 
 ```bash
 sudo apt-get update
 sudo apt-get install -y bash rsync openssh-client restic openssl
-chmod +x ./backupctl
+chmod +x ./restic-cli
 chmod +x ./systemd/install.sh
 ```
 
 ## Required Commands
 
 ```bash
-./backupctl init
-./backupctl setup
-./backupctl servers
-./backupctl remove <server_name>
-./backupctl backup
-./backupctl run-due
-./backupctl snapshots
-./backupctl restore
+./restic-cli init
+./restic-cli setup
+./restic-cli servers
+./restic-cli remove <server_name>
+./restic-cli backup
+./restic-cli run-due
+./restic-cli snapshots
+./restic-cli restore
 ```
 
 Optional target server:
 
 ```bash
-./backupctl backup web01
-./backupctl snapshots web01
-./backupctl restore web01
-./backupctl restore web01 9e6af64e
-./backupctl restore web01 --dry-run
-./backupctl restore web01 9e6af64e --dry-run
+./restic-cli backup web01
+./restic-cli snapshots web01
+./restic-cli restore web01
+./restic-cli restore web01 9e6af64e
+./restic-cli restore web01 --dry-run
+./restic-cli restore web01 9e6af64e --dry-run
 ```
 
 ## First Run
 
 ```bash
-./backupctl init
-./backupctl setup
+./restic-cli init
+./restic-cli setup
 ```
 
 `init` collects global settings used by all servers:
@@ -120,32 +120,32 @@ BACKUP_ANCHOR_DATE="2026-07-22"
 Run all backups:
 
 ```bash
-./backupctl backup
+./restic-cli backup
 ```
 
 Run only servers that are due by configured frequency:
 
 ```bash
-./backupctl run-due
+./restic-cli run-due
 ```
 
 Restore latest snapshot:
 
 ```bash
-./backupctl restore web01
+./restic-cli restore web01
 ```
 
 Restore a specific snapshot:
 
 ```bash
-./backupctl restore web01 9e6af64e
+./restic-cli restore web01 9e6af64e
 ```
 
 Restore dry-run preview (no remote writes):
 
 ```bash
-./backupctl restore web01 --dry-run
-./backupctl restore web01 9e6af64e --dry-run
+./restic-cli restore web01 --dry-run
+./restic-cli restore web01 9e6af64e --dry-run
 ```
 
 Restore flow behavior:
@@ -161,20 +161,20 @@ Restore flow behavior:
 List configured backup servers:
 
 ```bash
-./backupctl servers
+./restic-cli servers
 ```
 
 Remove server from backup list (keeps repository data):
 
 ```bash
-./backupctl remove web01
+./restic-cli remove web01
 ```
 
 Show snapshots:
 
 ```bash
-./backupctl snapshots
-./backupctl snapshots web01
+./restic-cli snapshots
+./restic-cli snapshots web01
 ```
 
 Restore target is always under RESTORE_STORAGE:
@@ -189,7 +189,7 @@ Remote push target:
 
 ## Scheduler
 
-Frequency choices are checked by `backupctl run-due`:
+Frequency choices are checked by `restic-cli run-due`:
 
 - `once a day`
 - `once a week`
@@ -210,13 +210,13 @@ Systemd files are provided in `systemd/`:
 - `systemd/install.sh`
 
 `systemd/install.sh` copies those two unit files into `/etc/systemd/system/`.
-It also installs the logrotate policy into `/etc/logrotate.d/restic-backupctl`.
+It also installs the logrotate policy into `/etc/logrotate.d/restic-cli`.
 
 Before installing systemd units, run init first (and then setup) in the same project copy used by systemd so `config.conf` and server files are populated:
 
 ```bash
-./backupctl init
-./backupctl setup
+./restic-cli init
+./restic-cli setup
 ```
 
 Install them:
@@ -255,7 +255,7 @@ sudo systemctl restart restic-scheduler.timer
 systemctl list-timers --all | grep restic-scheduler
 ```
 
-The timer runs every minute and calls `./backupctl run-due`. The script decides which servers are due and only runs those backups.
+The timer runs every minute and calls `./restic-cli run-due`. The script decides which servers are due and only runs those backups.
 
 ## Logs
 

@@ -16,7 +16,7 @@ run_init_wizard() {
   install_error_trap
   install_signal_traps
 
-  print_header "backupctl init"
+  print_header "restic-cli init"
   msg_info "Global configuration setup started."
 
   ensure_project_directories
@@ -50,7 +50,7 @@ run_init_wizard() {
 
   load_global_config
   msg_success "Global configuration saved: ${GLOBAL_CONFIG_FILE}"
-  msg_info "Next step: run ./backupctl setup to add a server."
+  msg_info "Next step: run ./restic-cli setup to add a server."
 }
 
 # Upsert a key=value assignment in config.conf.
@@ -427,7 +427,7 @@ run_setup_wizard() {
   install_error_trap
   install_signal_traps
 
-  print_header "backupctl setup"
+  print_header "restic-cli setup"
   msg_info "Interactive setup started."
 
   ensure_project_directories
@@ -481,5 +481,5 @@ run_setup_wizard() {
   write_operation_log "${server_name}" "setup" "success" "0" "Setup completed successfully"
 
   msg_success "Setup completed for server: ${server_name}"
-  msg_info "You can now run: ./backupctl backup"
+  msg_info "You can now run: ./restic-cli backup"
 }

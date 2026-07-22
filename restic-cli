@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-# Resolve symlinks so backupctl works when invoked from /usr/local/bin.
+# Resolve symlinks so restic-cli works when invoked from /usr/local/bin.
 ROOT_DIR="$(cd -- "$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")" && pwd)"
 LIB_DIR="${ROOT_DIR}/lib"
 
@@ -21,18 +21,18 @@ source "${LIB_DIR}/scheduler.sh"
 # Print CLI usage.
 print_usage() {
   cat <<'EOF'
-backupctl - centralized Restic backup controller
+restic-cli - centralized Restic backup controller
 
 Usage:
-  backupctl init
-  backupctl setup
-  backupctl servers
-  backupctl remove <server_name>
-  backupctl backup [server_name]
-  backupctl run-due
-  backupctl snapshots [server_name]
-  backupctl restore [server_name] [snapshot_id] [--dry-run]
-  backupctl restore [server_name] --dry-run
+  restic-cli init
+  restic-cli setup
+  restic-cli servers
+  restic-cli remove <server_name>
+  restic-cli backup [server_name]
+  restic-cli run-due
+  restic-cli snapshots [server_name]
+  restic-cli restore [server_name] [snapshot_id] [--dry-run]
+  restic-cli restore [server_name] --dry-run
 
 Commands:
   init     Interactive global configuration wizard

@@ -176,7 +176,7 @@ resolve_backup_targets() {
     [[ -n "${server}" ]] && _target_ref+=("${server}")
   done < <(list_server_names)
 
-  ((${#_target_ref[@]} > 0)) || die "No server configs found in ${SERVER_CONFIG_DIR}. Run backupctl setup first."
+  ((${#_target_ref[@]} > 0)) || die "No server configs found in ${SERVER_CONFIG_DIR}. Run restic-cli setup first."
 }
 
 # Execute backup workflow for all resolved servers.
@@ -184,7 +184,7 @@ run_backup() {
   install_error_trap
   install_signal_traps
 
-  print_header "backupctl backup"
+  print_header "restic-cli backup"
 
   load_global_config
   ensure_local_restic

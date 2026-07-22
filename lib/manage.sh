@@ -10,7 +10,7 @@ run_servers() {
   install_error_trap
   install_signal_traps
 
-  print_header "backupctl servers"
+  print_header "restic-cli servers"
   load_global_config
 
   local -a servers=()
@@ -35,7 +35,7 @@ run_remove_server() {
   install_error_trap
   install_signal_traps
 
-  print_header "backupctl remove"
+  print_header "restic-cli remove"
   load_global_config
 
   local server_name="$1"
@@ -61,7 +61,7 @@ run_snapshots() {
   install_error_trap
   install_signal_traps
 
-  print_header "backupctl snapshots"
+  print_header "restic-cli snapshots"
   load_global_config
   ensure_local_restic
 

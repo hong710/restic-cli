@@ -31,7 +31,7 @@ run_due_backups() {
   install_error_trap
   install_signal_traps
 
-  print_header "backupctl run-due"
+  print_header "restic-cli run-due"
 
   load_global_config
   ensure_local_restic
@@ -43,7 +43,11 @@ run_due_backups() {
     [[ -n "${server}" ]] && servers+=("${server}")
   done < <(list_server_names)
 
-  ((${#servers[@]} > 0)) || die "No server configs found in ${SERVER_CONFIG_DIR}."
+  if ((${#servers[@]} == 0)); then
+    msg_info "No server configs found in ${SERVER_CONFIG_DIR} yet. Scheduler service is ready."
+    msg_info "Add at least one server with: ./restic-cli setup"
+    return 0
+  fi
 
   local now_epoch
   now_epoch="$(date +%s)"

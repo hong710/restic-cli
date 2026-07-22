@@ -7,7 +7,7 @@ SYSTEMD_TARGET_DIR="/etc/systemd/system"
 LOGROTATE_TARGET_DIR="/etc/logrotate.d"
 SERVICE_NAME="restic-scheduler.service"
 TIMER_NAME="restic-scheduler.timer"
-LOGROTATE_NAME="restic-backupctl"
+LOGROTATE_NAME="restic-cli"
 SERVICE_SOURCE_PATH="${SYSTEMD_SOURCE_DIR}/${SERVICE_NAME}"
 TIMER_SOURCE_PATH="${SYSTEMD_SOURCE_DIR}/${TIMER_NAME}"
 SERVICE_TARGET_PATH="${SYSTEMD_TARGET_DIR}/${SERVICE_NAME}"
@@ -49,7 +49,7 @@ verify_source_files() {
   [[ -f "${SERVICE_SOURCE_PATH}" ]] || die "Missing source unit: ${SERVICE_SOURCE_PATH}"
   [[ -f "${TIMER_SOURCE_PATH}" ]] || die "Missing source unit: ${TIMER_SOURCE_PATH}"
   [[ -f "${LOGROTATE_SOURCE_PATH}" ]] || die "Missing logrotate config: ${LOGROTATE_SOURCE_PATH}"
-  [[ -x "${PROJECT_ROOT}/backupctl" ]] || die "backupctl is missing or not executable at ${PROJECT_ROOT}/backupctl"
+  [[ -x "${PROJECT_ROOT}/restic-cli" ]] || die "restic-cli is missing or not executable at ${PROJECT_ROOT}/restic-cli"
 }
 
 # Copy the service unit as-is.
@@ -59,11 +59,11 @@ install_service_unit() {
 
 # Configure service paths to match this checkout layout.
 configure_service_paths() {
-  local backupctl_path
-  backupctl_path="$(readlink -f -- "${PROJECT_ROOT}/backupctl")"
+  local restic_cli_path
+  restic_cli_path="$(readlink -f -- "${PROJECT_ROOT}/restic-cli")"
 
   sed -i '/^Environment=PROJECT_ROOT=/d' "${SERVICE_TARGET_PATH}"
-  sed -i "s|^ExecStart=.*|ExecStart=${backupctl_path} run-due|" "${SERVICE_TARGET_PATH}"
+  sed -i "s|^ExecStart=.*|ExecStart=${restic_cli_path} run-due|" "${SERVICE_TARGET_PATH}"
 
   if grep -q '^WorkingDirectory=' "${SERVICE_TARGET_PATH}"; then
     sed -i "s|^WorkingDirectory=.*|WorkingDirectory=${PROJECT_ROOT}|" "${SERVICE_TARGET_PATH}"
@@ -102,7 +102,7 @@ install_scheduler() {
 
   printf 'Installed, enabled, and restarted %s\n' "${TIMER_NAME}"
   printf 'Installed logrotate config %s\n' "${LOGROTATE_TARGET_PATH}"
-  printf 'Configured service ExecStart=%s run-due and WorkingDirectory=%s\n' "$(readlink -f -- "${PROJECT_ROOT}/backupctl")" "${PROJECT_ROOT}"
+  printf 'Configured service ExecStart=%s run-due and WorkingDirectory=%s\n' "$(readlink -f -- "${PROJECT_ROOT}/restic-cli")" "${PROJECT_ROOT}"
   systemctl status "${TIMER_NAME}" --no-pager || true
 }
 
