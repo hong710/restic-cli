@@ -5,7 +5,8 @@ After=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/bin/restic-backupctl run-due
+# install.sh rewrites ExecStart and WorkingDirectory to this checkout root.
+ExecStart=/opt/restic_backup/backupctl run-due
 User=root
 Group=root
 Nice=10

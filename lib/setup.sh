@@ -11,6 +11,48 @@ escape_shell_value() {
   printf '%q' "${value}"
 }
 
+# Prompt and save global configuration values used by all servers.
+run_init_wizard() {
+  install_error_trap
+  install_signal_traps
+
+  print_header "backupctl init"
+  msg_info "Global configuration setup started."
+
+  ensure_project_directories
+
+  if [[ -f "${GLOBAL_CONFIG_FILE}" ]]; then
+    # shellcheck disable=SC1090
+    source "${GLOBAL_CONFIG_FILE}"
+  fi
+
+  local backup_storage restore_storage log_directory password_directory shared_password_file
+
+  prompt_with_default "Backup storage location" "${BACKUP_STORAGE:-/home/data/backups}" backup_storage
+  prompt_with_default "Restore location" "${RESTORE_STORAGE:-/home/data/restore}" restore_storage
+  prompt_with_default "Log directory" "${LOG_DIRECTORY:-${LOG_DIR_DEFAULT}}" log_directory
+  prompt_with_default "Password directory" "${PASSWORD_DIRECTORY:-${PASSWORD_DIR_DEFAULT}}" password_directory
+  prompt_with_default "Shared password filename" "${SHARED_PASSWORD_FILE:-shared.pass}" shared_password_file
+
+  [[ "${shared_password_file}" == */* ]] && die "Shared password filename must not contain '/': ${shared_password_file}"
+
+  mkdir -p -- "${backup_storage}" "${restore_storage}" "${log_directory}" "${password_directory}"
+  [[ -w "${backup_storage}" ]] || die "Backup storage is not writable: ${backup_storage}"
+  [[ -w "${restore_storage}" ]] || die "Restore storage is not writable: ${restore_storage}"
+  [[ -w "${log_directory}" ]] || die "Log directory is not writable: ${log_directory}"
+  [[ -w "${password_directory}" ]] || die "Password directory is not writable: ${password_directory}"
+
+  set_global_config_key "BACKUP_STORAGE" "${backup_storage}"
+  set_global_config_key "RESTORE_STORAGE" "${restore_storage}"
+  set_global_config_key "LOG_DIRECTORY" "${log_directory}"
+  set_global_config_key "PASSWORD_DIRECTORY" "${password_directory}"
+  set_global_config_key "SHARED_PASSWORD_FILE" "${shared_password_file}"
+
+  load_global_config
+  msg_success "Global configuration saved: ${GLOBAL_CONFIG_FILE}"
+  msg_info "Next step: run ./backupctl setup to add a server."
+}
+
 # Upsert a key=value assignment in config.conf.
 set_global_config_key() {
   local key="$1"
@@ -392,7 +434,7 @@ run_setup_wizard() {
   ensure_local_restic
   ensure_local_openssl
 
-  local server_name host user port backup_storage restore_storage
+  local server_name host user port
   local backup_frequency backup_time backup_day backup_anchor_date retention_policy
   local -a paths
 
@@ -405,18 +447,7 @@ run_setup_wizard() {
 
   [[ "${port}" =~ ^[0-9]{1,5}$ ]] || die "Invalid SSH port: ${port}"
 
-  if [[ -f "${GLOBAL_CONFIG_FILE}" ]]; then
-    # Load existing defaults for smoother setup.
-    # shellcheck disable=SC1090
-    source "${GLOBAL_CONFIG_FILE}"
-  fi
-
-  prompt_with_default "Backup storage location" "${BACKUP_STORAGE:-/home/data/backups}" backup_storage
-  prompt_with_default "Restore location" "${RESTORE_STORAGE:-/home/data/restore}" restore_storage
-
-  mkdir -p -- "${backup_storage}" "${restore_storage}"
-  [[ -w "${backup_storage}" ]] || die "Backup storage is not writable: ${backup_storage}"
-  [[ -w "${restore_storage}" ]] || die "Restore storage is not writable: ${restore_storage}"
+  load_global_config
 
   collect_backup_paths paths
   prompt_backup_frequency backup_frequency "${BACKUP_FREQUENCY:-once a day}"
@@ -437,14 +468,6 @@ run_setup_wizard() {
 
   validate_remote_paths_exist "${host}" "${user}" "${port}" "${paths[@]}"
   ensure_remote_restic "${host}" "${user}" "${port}"
-
-  set_global_config_key "BACKUP_STORAGE" "${backup_storage}"
-  set_global_config_key "RESTORE_STORAGE" "${restore_storage}"
-  set_global_config_key "LOG_DIRECTORY" "${LOG_DIR_DEFAULT}"
-  set_global_config_key "PASSWORD_DIRECTORY" "${PASSWORD_DIR_DEFAULT}"
-  set_global_config_key "SHARED_PASSWORD_FILE" "shared.pass"
-
-  load_global_config
 
   local pass_file
   pass_file="$(create_password_file "${server_name}")"

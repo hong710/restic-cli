@@ -1,0 +1,16 @@
+# Local/global runtime config (machine-specific)
+config.conf
+servers/*.conf
+
+# Secrets and local credentials
+passwords/*
+
+# Runtime artifacts
+logs/*
+tmp/*
+
+# Keep project structure for empty dirs
+!logs/.gitkeep
+!tmp/.gitkeep
+!passwords/.gitkeep
+!servers/.gitkeep

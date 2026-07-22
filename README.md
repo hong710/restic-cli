@@ -12,6 +12,7 @@ chmod +x ./systemd/install.sh
 ## Required Commands
 
 ```bash
+./backupctl init
 ./backupctl setup
 ./backupctl servers
 ./backupctl remove <server_name>
@@ -35,14 +36,21 @@ Optional target server:
 ## First Run
 
 ```bash
+./backupctl init
 ./backupctl setup
 ```
 
-Wizard collects:
+`init` collects global settings used by all servers:
 
-- server name, host, ssh user, ssh port
 - backup storage path (local)
 - restore storage path (local)
+- log directory
+- password directory
+- shared password filename
+
+Then `setup` collects server-specific settings:
+
+- server name, host, ssh user, ssh port
 - remote paths to back up
 
 Wizard also:
@@ -204,6 +212,13 @@ Systemd files are provided in `systemd/`:
 `systemd/install.sh` copies those two unit files into `/etc/systemd/system/`.
 It also installs the logrotate policy into `/etc/logrotate.d/restic-backupctl`.
 
+Before installing systemd units, run init first (and then setup) in the same project copy used by systemd so `config.conf` and server files are populated:
+
+```bash
+./backupctl init
+./backupctl setup
+```
+
 Install them:
 
 ```bash
@@ -222,6 +237,22 @@ Check timer status:
 systemctl status restic-scheduler.timer
 systemctl list-timers --all | grep restic-scheduler
 journalctl -u restic-scheduler.service
+```
+
+The installer reloads and restarts the timer, so `list-timers` should show a concrete next run time.
+
+Change timer interval in `systemd/restic-scheduler.timer` at `OnCalendar=`:
+
+- every 1 minute: `OnCalendar=*-*-* *:*:00`
+- every 5 minutes: `OnCalendar=*-*-* *:0/5:00`
+- every 15 minutes: `OnCalendar=*-*-* *:0/15:00`
+
+After changing the timer file, apply it:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart restic-scheduler.timer
+systemctl list-timers --all | grep restic-scheduler
 ```
 
 The timer runs every minute and calls `./backupctl run-due`. The script decides which servers are due and only runs those backups.

@@ -24,6 +24,7 @@ print_usage() {
 backupctl - centralized Restic backup controller
 
 Usage:
+  backupctl init
   backupctl setup
   backupctl servers
   backupctl remove <server_name>
@@ -34,6 +35,7 @@ Usage:
   backupctl restore [server_name] --dry-run
 
 Commands:
+  init     Interactive global configuration wizard
   setup    Interactive server configuration wizard
   servers  List configured servers included in backup runs
   remove   Remove server from backup list (keeps repository data)
@@ -48,7 +50,7 @@ EOF
 validate_command() {
   local cmd="${1:-}"
   case "${cmd}" in
-    setup|servers|remove|backup|run-due|snapshots|restore)
+    init|setup|servers|remove|backup|run-due|snapshots|restore)
       return 0
       ;;
     ""|-h|--help)
@@ -75,6 +77,12 @@ main() {
   validate_command "${command}"
 
   case "${command}" in
+    init)
+      if [[ -n "${target}" ]]; then
+        die "init does not accept extra arguments."
+      fi
+      run_init_wizard
+      ;;
     setup)
       if [[ -n "${target}" ]]; then
         die "setup does not accept extra arguments."

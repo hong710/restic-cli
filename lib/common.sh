@@ -168,7 +168,7 @@ load_global_config() {
   ensure_project_directories
 
   if [[ ! -f "${GLOBAL_CONFIG_FILE}" ]]; then
-    die "Global config missing: ${GLOBAL_CONFIG_FILE}. Run backupctl setup first."
+    die "Global config missing: ${GLOBAL_CONFIG_FILE}. Run backupctl init first."
   fi
 
   # shellcheck disable=SC1090

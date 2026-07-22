@@ -8,7 +8,6 @@ LOGROTATE_TARGET_DIR="/etc/logrotate.d"
 SERVICE_NAME="restic-scheduler.service"
 TIMER_NAME="restic-scheduler.timer"
 LOGROTATE_NAME="restic-backupctl"
-CLI_LINK_PATH="/usr/local/bin/restic-backupctl"
 SERVICE_SOURCE_PATH="${SYSTEMD_SOURCE_DIR}/${SERVICE_NAME}"
 TIMER_SOURCE_PATH="${SYSTEMD_SOURCE_DIR}/${TIMER_NAME}"
 SERVICE_TARGET_PATH="${SYSTEMD_TARGET_DIR}/${SERVICE_NAME}"
@@ -53,19 +52,24 @@ verify_source_files() {
   [[ -x "${PROJECT_ROOT}/backupctl" ]] || die "backupctl is missing or not executable at ${PROJECT_ROOT}/backupctl"
 }
 
-# Install a stable CLI symlink target for systemd ExecStart.
-install_cli_link() {
-  ln -sfn -- "${PROJECT_ROOT}/backupctl" "${CLI_LINK_PATH}"
-}
-
-# Remove the stable CLI symlink if present.
-remove_cli_link() {
-  rm -f -- "${CLI_LINK_PATH}"
-}
-
 # Copy the service unit as-is.
 install_service_unit() {
   cp -f -- "${SERVICE_SOURCE_PATH}" "${SERVICE_TARGET_PATH}"
+}
+
+# Configure service paths to match this checkout layout.
+configure_service_paths() {
+  local backupctl_path
+  backupctl_path="$(readlink -f -- "${PROJECT_ROOT}/backupctl")"
+
+  sed -i '/^Environment=PROJECT_ROOT=/d' "${SERVICE_TARGET_PATH}"
+  sed -i "s|^ExecStart=.*|ExecStart=${backupctl_path} run-due|" "${SERVICE_TARGET_PATH}"
+
+  if grep -q '^WorkingDirectory=' "${SERVICE_TARGET_PATH}"; then
+    sed -i "s|^WorkingDirectory=.*|WorkingDirectory=${PROJECT_ROOT}|" "${SERVICE_TARGET_PATH}"
+  else
+    sed -i "/^Type=oneshot/a WorkingDirectory=${PROJECT_ROOT}" "${SERVICE_TARGET_PATH}"
+  fi
 }
 
 # Copy the timer unit as-is.
@@ -83,20 +87,22 @@ install_scheduler() {
   require_root
   require_command systemctl
   require_command cp
-  require_command ln
+  require_command sed
+  require_command grep
   verify_source_files
 
   install_service_unit
+  configure_service_paths
   install_timer_unit
   install_logrotate_config
-  install_cli_link
 
   systemctl daemon-reload
-  systemctl enable --now "${TIMER_NAME}"
+  systemctl enable "${TIMER_NAME}" >/dev/null
+  systemctl restart "${TIMER_NAME}"
 
-  printf 'Installed and enabled %s\n' "${TIMER_NAME}"
+  printf 'Installed, enabled, and restarted %s\n' "${TIMER_NAME}"
   printf 'Installed logrotate config %s\n' "${LOGROTATE_TARGET_PATH}"
-  printf 'Installed CLI link %s -> %s/backupctl\n' "${CLI_LINK_PATH}" "${PROJECT_ROOT}"
+  printf 'Configured service ExecStart=%s run-due and WorkingDirectory=%s\n' "$(readlink -f -- "${PROJECT_ROOT}/backupctl")" "${PROJECT_ROOT}"
   systemctl status "${TIMER_NAME}" --no-pager || true
 }
 
@@ -111,11 +117,10 @@ remove_scheduler() {
 
   rm -f -- "${SERVICE_TARGET_PATH}" "${TIMER_TARGET_PATH}"
   rm -f -- "${LOGROTATE_TARGET_PATH}"
-  remove_cli_link
   systemctl daemon-reload
   systemctl reset-failed || true
 
-  printf 'Removed %s, %s, %s, and %s\n' "${SERVICE_NAME}" "${TIMER_NAME}" "${LOGROTATE_NAME}" "${CLI_LINK_PATH}"
+  printf 'Removed %s, %s, and %s\n' "${SERVICE_NAME}" "${TIMER_NAME}" "${LOGROTATE_NAME}"
 }
 
 # Dispatch CLI arguments.
