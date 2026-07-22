@@ -152,7 +152,7 @@ Restore flow behavior:
 
 - restores latest snapshot locally to RESTORE_STORAGE
 - can restore a specific snapshot id when provided
-- dry-run mode restores to a temporary local target and previews remote rsync changes only
+- dry-run mode restores under RESTORE_STORAGE (dry-run target) and previews remote rsync changes only
 - asks whether to push restored data back to remote host
 - optional rsync dry-run preview
 - asks for final apply confirmation before remote write
@@ -181,6 +181,8 @@ Restore target is always under RESTORE_STORAGE:
 
 - `RESTORE_STORAGE/web01`
 - or `RESTORE_STORAGE/web01-YYYYMMDD-HHMMSS` if existing
+- dry-run target: `RESTORE_STORAGE/web01-dry-run`
+- or `RESTORE_STORAGE/web01-dry-run-YYYYMMDD-HHMMSS` if existing
 
 Remote push target:
 

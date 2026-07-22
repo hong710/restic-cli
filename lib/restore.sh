@@ -30,6 +30,19 @@ resolve_restore_target() {
   printf '%s-%s\n' "${base_target}" "$(restore_stamp)"
 }
 
+# Pick a dry-run restore preview directory under RESTORE_STORAGE.
+resolve_restore_preview_target() {
+  local server_name="$1"
+  local base_target="${RESTORE_STORAGE}/${server_name}-dry-run"
+
+  if [[ ! -e "${base_target}" ]]; then
+    printf '%s\n' "${base_target}"
+    return 0
+  fi
+
+  printf '%s-%s\n' "${base_target}" "$(restore_stamp)"
+}
+
 # Ensure there is at least one snapshot available for restore.
 ensure_snapshot_exists() {
   local repo_path="$1"
@@ -162,8 +175,9 @@ restore_one_server() {
   ensure_snapshot_exists "${repo_path}" "${pass_file}" "${NAME}" "${snapshot_id}"
 
   if [[ "${restore_mode}" == "dry-run" ]]; then
-    target_dir="$(create_temp_workspace "restore-preview-${NAME}")"
-    msg_info "Dry-run mode: using temporary local target ${target_dir}"
+    target_dir="$(resolve_restore_preview_target "${NAME}")"
+    mkdir -p -- "${target_dir}"
+    msg_info "Dry-run mode: using local preview target ${target_dir} under RESTORE_STORAGE"
   else
     target_dir="$(resolve_restore_target "${NAME}")"
     mkdir -p -- "${target_dir}"
@@ -294,7 +308,7 @@ run_restore() {
 
   if [[ "${dry_run_mode}" == "yes" ]]; then
     restore_mode="dry-run"
-    msg_info "Restore dry-run enabled. Snapshot will be restored to temp directory and remote changes previewed only."
+    msg_info "Restore dry-run enabled. Snapshot will be restored under RESTORE_STORAGE and remote changes previewed only."
   else
     prompt_yes_no "Push restored data back to remote server ${requested_server}" proceed_remote_push yes
     [[ "${proceed_remote_push}" == "yes" ]] || die "Restore cancelled by user."
