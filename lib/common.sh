@@ -321,13 +321,14 @@ latest_weekly_schedule_epoch() {
   local now_epoch="$1"
   local backup_day="$2"
   local backup_time="$3"
-  local target_weekday current_weekday offset_days candidate_date candidate_epoch
+  local target_weekday current_weekday offset_days today_date candidate_date candidate_epoch
 
   target_weekday="$(backup_day_to_iso_weekday "${backup_day}")" || return 1
   current_weekday="$(date -d "@${now_epoch}" +%u)"
   offset_days="$((current_weekday - target_weekday))"
 
-  candidate_date="$(date -d "@${now_epoch} ${offset_days} days" +%F)"
+  today_date="$(date -d "@${now_epoch}" +%F)"
+  candidate_date="$(date -d "${today_date} ${offset_days} days" +%F)"
   candidate_epoch="$(epoch_for_date_and_time "${candidate_date}" "${backup_time}")"
 
   if (( candidate_epoch <= now_epoch )); then
