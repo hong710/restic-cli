@@ -70,18 +70,13 @@ run_restic_backup() {
   restic_args=(
     -r "${repo_path}"
     --password-file "${pass_file}"
+    --retry-lock "${RESTIC_RETRY_LOCK_DEFAULT}"
     backup
     "${rel_paths[@]}"
     --host "${server_name}"
     --tag "server:${server_name}"
     --verbose
   )
-
-  if restic backup --help 2>/dev/null | grep -q -- '--skip-if-unchanged'; then
-    restic_args+=(--skip-if-unchanged)
-  else
-    msg_warn "Installed restic does not support --skip-if-unchanged; unchanged backups may still create a snapshot."
-  fi
 
   msg_progress "Creating Restic snapshot for ${server_name}"
   (
@@ -102,7 +97,7 @@ apply_retention_policy() {
   keep_last="$(retention_policy_to_keep_last "${retention_policy}")" || die "Cannot map retention policy for ${server_name}: ${retention_policy}"
 
   msg_progress "Applying retention policy ${retention_policy} for ${server_name}"
-  restic -r "${repo_path}" --password-file "${pass_file}" \
+  restic -r "${repo_path}" --password-file "${pass_file}" --retry-lock "${RESTIC_RETRY_LOCK_DEFAULT}" \
     forget --host "${server_name}" --keep-last "${keep_last}" --prune --verbose
 }
 

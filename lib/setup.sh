@@ -358,7 +358,7 @@ create_and_init_repository() {
 
   if ! restic -r "${repo_path}" --password-file "${pass_file}" snapshots --no-lock >/dev/null 2>&1; then
     msg_progress "Initializing Restic repository: ${repo_path}"
-    restic -r "${repo_path}" --password-file "${pass_file}" init >/dev/null
+    restic -r "${repo_path}" --password-file "${pass_file}" --retry-lock "${RESTIC_RETRY_LOCK_DEFAULT}" init >/dev/null
   else
     msg_info "Repository already initialized: ${repo_path}"
   fi

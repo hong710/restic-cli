@@ -51,13 +51,13 @@ ensure_snapshot_exists() {
   local snapshot_id="${4:-latest}"
 
   if [[ "${snapshot_id}" == "latest" ]]; then
-    if ! restic -r "${repo_path}" --password-file "${pass_file}" snapshots --host "${host_name}" --latest 1 >/dev/null 2>&1; then
+    if ! restic -r "${repo_path}" --password-file "${pass_file}" --retry-lock "${RESTIC_RETRY_LOCK_DEFAULT}" snapshots --host "${host_name}" --latest 1 >/dev/null 2>&1; then
       die "No snapshots found in repository ${repo_path} for host ${host_name}."
     fi
     return 0
   fi
 
-  if ! restic -r "${repo_path}" --password-file "${pass_file}" snapshots "${snapshot_id}" --host "${host_name}" >/dev/null 2>&1; then
+  if ! restic -r "${repo_path}" --password-file "${pass_file}" --retry-lock "${RESTIC_RETRY_LOCK_DEFAULT}" snapshots "${snapshot_id}" --host "${host_name}" >/dev/null 2>&1; then
     die "Snapshot ${snapshot_id} not found for host ${host_name} in ${repo_path}."
   fi
 }
@@ -191,7 +191,7 @@ restore_one_server() {
     msg_info "Repository: ${repo_path}"
     msg_info "Restore target: ${target_dir}"
 
-    restic -r "${repo_path}" --password-file "${pass_file}" \
+    restic -r "${repo_path}" --password-file "${pass_file}" --retry-lock "${RESTIC_RETRY_LOCK_DEFAULT}" \
       restore "${snapshot_id}" \
       --host "${NAME}" \
       --target "${target_dir}" \

@@ -91,7 +91,7 @@ run_snapshots() {
     validate_repository "${repo_path}" "${pass_file}"
 
     msg_info "Snapshots for ${NAME}"
-    restic -r "${repo_path}" --password-file "${pass_file}" snapshots --host "${NAME}" || die "Failed to list snapshots for ${NAME}"
+    restic -r "${repo_path}" --password-file "${pass_file}" --retry-lock "${RESTIC_RETRY_LOCK_DEFAULT}" snapshots --host "${NAME}" || die "Failed to list snapshots for ${NAME}"
     printf '\n'
   done
 }
@@ -118,12 +118,118 @@ run_snapshot_diff() {
   [[ -f "${pass_file}" ]] || die "Password file missing for ${NAME}: ${pass_file}"
   validate_repository "${repo_path}" "${pass_file}"
 
-  restic -r "${repo_path}" --password-file "${pass_file}" snapshots "${snapshot_a}" --host "${NAME}" >/dev/null 2>&1 || \
+  restic -r "${repo_path}" --password-file "${pass_file}" --retry-lock "${RESTIC_RETRY_LOCK_DEFAULT}" snapshots "${snapshot_a}" --host "${NAME}" >/dev/null 2>&1 || \
     die "Snapshot ${snapshot_a} not found for ${NAME}."
-  restic -r "${repo_path}" --password-file "${pass_file}" snapshots "${snapshot_b}" --host "${NAME}" >/dev/null 2>&1 || \
+  restic -r "${repo_path}" --password-file "${pass_file}" --retry-lock "${RESTIC_RETRY_LOCK_DEFAULT}" snapshots "${snapshot_b}" --host "${NAME}" >/dev/null 2>&1 || \
     die "Snapshot ${snapshot_b} not found for ${NAME}."
 
   msg_info "Diff for ${NAME}: ${snapshot_a} -> ${snapshot_b}"
-  restic -r "${repo_path}" --password-file "${pass_file}" diff "${snapshot_a}" "${snapshot_b}" || \
+  restic -r "${repo_path}" --password-file "${pass_file}" --retry-lock "${RESTIC_RETRY_LOCK_DEFAULT}" diff "${snapshot_a}" "${snapshot_b}" || \
     die "Failed to diff snapshots for ${NAME}."
+}
+
+# Remove older snapshots whose tree is identical to a newer snapshot.
+run_prune_identical_snapshots() {
+  install_error_trap
+  install_signal_traps
+
+  print_header "restic-cli prune"
+  load_global_config
+  ensure_local_restic
+
+  local server_name="$1"
+  load_server_config "${server_name}"
+
+  local pass_file repo_path
+  pass_file="$(password_file_path "${NAME}")"
+  repo_path="$(repository_path "${REPOSITORY}")"
+
+  [[ -f "${pass_file}" ]] || die "Password file missing for ${NAME}: ${pass_file}"
+  validate_repository "${repo_path}" "${pass_file}"
+
+  local -a snapshot_meta_lines=()
+  local snapshot_id snapshot_json snapshot_tree snapshot_time snapshot_bytes snapshot_files
+  while IFS= read -r snapshot_id _; do
+    [[ "${snapshot_id}" =~ ^[0-9a-f]{8,}$ ]] || continue
+
+    snapshot_json="$(restic -r "${repo_path}" --password-file "${pass_file}" --retry-lock "${RESTIC_RETRY_LOCK_DEFAULT}" cat snapshot "${snapshot_id}")" || \
+      die "Failed to read snapshot metadata for ${snapshot_id}."
+    snapshot_json="${snapshot_json//$'\n'/ }"
+
+    [[ "${snapshot_json}" =~ \"tree\"[[:space:]]*:[[:space:]]*\"([^\"]+)\" ]] || die "Snapshot ${snapshot_id} is missing tree metadata."
+    snapshot_tree="${BASH_REMATCH[1]}"
+    [[ "${snapshot_json}" =~ \"time\"[[:space:]]*:[[:space:]]*\"([^\"]+)\" ]] || die "Snapshot ${snapshot_id} is missing time metadata."
+    snapshot_time="${BASH_REMATCH[1]}"
+
+    snapshot_bytes="0"
+    if [[ "${snapshot_json}" =~ \"total_bytes_processed\"[[:space:]]*:[[:space:]]*([0-9]+) ]]; then
+      snapshot_bytes="${BASH_REMATCH[1]}"
+    fi
+
+    snapshot_files="0"
+    if [[ "${snapshot_json}" =~ \"total_files_processed\"[[:space:]]*:[[:space:]]*([0-9]+) ]]; then
+      snapshot_files="${BASH_REMATCH[1]}"
+    fi
+
+    snapshot_meta_lines+=("${snapshot_time}|${snapshot_id}|${snapshot_tree}|${snapshot_files}|${snapshot_bytes}")
+  done < <(restic -r "${repo_path}" --password-file "${pass_file}" --retry-lock "${RESTIC_RETRY_LOCK_DEFAULT}" snapshots --host "${NAME}")
+
+  ((${#snapshot_meta_lines[@]} > 0)) || die "No snapshots found for ${NAME}."
+
+  local -a sorted_snapshot_meta=()
+  while IFS= read -r snapshot_line; do
+    [[ -n "${snapshot_line}" ]] && sorted_snapshot_meta+=("${snapshot_line}")
+  done < <(printf '%s\n' "${snapshot_meta_lines[@]}" | sort)
+
+  local -A latest_snapshot_for_tree=()
+  local -A tree_for_snapshot=()
+  local -A time_for_snapshot=()
+  local -A files_for_snapshot=()
+  local -A bytes_for_snapshot=()
+  local -a duplicate_snapshot_ids=()
+  local snapshot_line
+
+  for snapshot_line in "${sorted_snapshot_meta[@]}"; do
+    IFS='|' read -r snapshot_time snapshot_id snapshot_tree snapshot_files snapshot_bytes <<< "${snapshot_line}"
+    tree_for_snapshot["${snapshot_id}"]="${snapshot_tree}"
+    time_for_snapshot["${snapshot_id}"]="${snapshot_time}"
+    files_for_snapshot["${snapshot_id}"]="${snapshot_files}"
+    bytes_for_snapshot["${snapshot_id}"]="${snapshot_bytes}"
+
+    if [[ -n "${latest_snapshot_for_tree[${snapshot_tree}]:-}" ]]; then
+      duplicate_snapshot_ids+=("${latest_snapshot_for_tree[${snapshot_tree}]}")
+    fi
+
+    latest_snapshot_for_tree["${snapshot_tree}"]="${snapshot_id}"
+  done
+
+  if ((${#duplicate_snapshot_ids[@]} == 0)); then
+    msg_info "No identical snapshots found for ${NAME}."
+    return 0
+  fi
+
+  msg_info "Found ${#duplicate_snapshot_ids[@]} older snapshot(s) with identical data for ${NAME}."
+  printf '%-12s %-20s %-8s %-12s %-12s %-12s\n' "REMOVE_ID" "TIME" "FILES" "BYTES" "TREE" "KEEP_ID"
+  printf '%-12s %-20s %-8s %-12s %-12s %-12s\n' "---------" "----" "-----" "-----" "----" "-------"
+
+  for snapshot_id in "${duplicate_snapshot_ids[@]}"; do
+    snapshot_tree="${tree_for_snapshot[${snapshot_id}]}"
+    printf '%-12s %-20s %-8s %-12s %-12s %-12s\n' \
+      "${snapshot_id:0:12}" \
+      "${time_for_snapshot[${snapshot_id}]:0:19}" \
+      "${files_for_snapshot[${snapshot_id}]}" \
+      "${bytes_for_snapshot[${snapshot_id}]}" \
+      "${snapshot_tree:0:12}" \
+      "${latest_snapshot_for_tree[${snapshot_tree}]:0:12}"
+  done
+
+  local confirm_prune=""
+  prompt_yes_no "Forget these older identical snapshots and run restic prune" confirm_prune no
+  [[ "${confirm_prune}" == "yes" ]] || die "Prune cancelled by user."
+
+  restic -r "${repo_path}" --password-file "${pass_file}" --retry-lock "${RESTIC_RETRY_LOCK_DEFAULT}" \
+    forget "${duplicate_snapshot_ids[@]}" --prune --verbose || die "Failed to forget identical snapshots for ${NAME}."
+
+  write_operation_log "${NAME}" "prune" "success" "0" "Removed ${#duplicate_snapshot_ids[@]} identical older snapshot(s)"
+  msg_success "Removed ${#duplicate_snapshot_ids[@]} identical older snapshot(s) for ${NAME}."
 }

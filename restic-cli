@@ -32,6 +32,7 @@ Usage:
   restic-cli run-due
   restic-cli snapshots [server_name]
   restic-cli diff <server_name> <snapshot_a> <snapshot_b>
+  restic-cli prune <server_name>
   restic-cli restore [server_name] [snapshot_id] [--no-push]
   restic-cli restore [server_name] --no-push
 
@@ -44,6 +45,7 @@ Commands:
   run-due  Run backups only for servers whose configured frequency is due
   snapshots  Show snapshots for one server or all servers
   diff     Compare two snapshots for one configured server
+  prune    Remove older snapshots whose data tree is identical to a newer snapshot
   restore  Restore latest or specific snapshot, optionally in no-push preview mode
 EOF
 }
@@ -52,7 +54,7 @@ EOF
 validate_command() {
   local cmd="${1:-}"
   case "${cmd}" in
-    init|setup|servers|remove|backup|run-due|snapshots|diff|restore)
+    init|setup|servers|remove|backup|run-due|snapshots|diff|prune|restore)
       return 0
       ;;
     ""|-h|--help)
@@ -131,6 +133,13 @@ main() {
         die "diff accepts exactly three arguments: <server_name> <snapshot_a> <snapshot_b>."
       fi
       run_snapshot_diff "${target}" "${extra}" "${extra2}"
+      ;;
+    prune)
+      [[ -n "${target}" ]] || die "prune requires server_name."
+      if [[ -n "${extra}" ]]; then
+        die "prune accepts exactly one server_name argument."
+      fi
+      run_prune_identical_snapshots "${target}"
       ;;
     restore)
       local snapshot_arg=""

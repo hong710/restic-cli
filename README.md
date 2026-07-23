@@ -20,6 +20,7 @@ chmod +x ./systemd/install.sh
 ./restic-cli run-due
 ./restic-cli snapshots
 ./restic-cli diff <server_name> <snapshot_a> <snapshot_b>
+./restic-cli prune <server_name>
 ./restic-cli restore
 ```
 
@@ -33,6 +34,7 @@ Optional target server:
 ./restic-cli restore web01 --no-push
 ./restic-cli restore web01 9e6af64e --no-push
 ./restic-cli diff web01 180a5185 c0dc38a1
+./restic-cli prune web01
 ```
 
 ## First Run
@@ -65,7 +67,7 @@ Wizard also:
 - asks backup time in `HH:MM`
 - asks backup day for weekly and 2-week schedules
 - asks retention policy from fixed options: 1snapshots, 3snapshots, 5snapshots, 7snapshots
-- skips creating a new snapshot when source data is unchanged
+- waits up to 5 minutes for a repository lock before failing a restic operation
 - writes servers/server_name.conf
 
 ## Config Files
@@ -185,6 +187,19 @@ Compare two snapshots for one server:
 ```bash
 ./restic-cli diff web01 180a5185 c0dc38a1
 ```
+
+Prune older identical snapshots for one server:
+
+```bash
+./restic-cli prune web01
+```
+
+Prune behavior:
+
+- scans snapshots for the server and groups them by identical restic tree id
+- shows older duplicate snapshots with time, files, and bytes processed
+- asks for confirmation before forgetting those older identical snapshots
+- runs `restic forget <ids> --prune` only after confirmation
 
 Restore target is always under RESTORE_STORAGE:
 
