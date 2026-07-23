@@ -104,15 +104,15 @@ collect_backup_paths() {
 # Ask for retention policy from fixed choices.
 prompt_retention_policy() {
   local result_var="$1"
-  local default_value="${2:-30days}"
+  local default_value="${2:-7snapshots}"
   local choice
   local selected
 
   while true; do
     printf 'Retention policy options:\n'
-    printf '  1) 7days\n'
-    printf '  2) 14days\n'
-    printf '  3) 30days\n'
+    printf '  1) keep last 2 snapshots\n'
+    printf '  2) keep last 5 snapshots\n'
+    printf '  3) keep last 7 snapshots\n'
     read -r -p "Select retention policy [default: ${default_value}]: " choice
 
     case "${choice}" in
@@ -120,13 +120,13 @@ prompt_retention_policy() {
         selected="${default_value}"
         ;;
       1)
-        selected="7days"
+        selected="2snapshots"
         ;;
       2)
-        selected="14days"
+        selected="5snapshots"
         ;;
       3)
-        selected="30days"
+        selected="7snapshots"
         ;;
       *)
         msg_warn "Invalid selection. Choose 1, 2, or 3."
@@ -460,7 +460,7 @@ run_setup_wizard() {
   if [[ "${backup_frequency}" == "every 2wk" ]]; then
     backup_anchor_date="$(date +%F)"
   fi
-  prompt_retention_policy retention_policy "${RETENTION_POLICY:-30days}"
+  prompt_retention_policy retention_policy "${RETENTION_POLICY:-7snapshots}"
 
   msg_progress "Testing SSH connectivity to ${user}@${host}:${port}"
   validate_ssh_connection "${host}" "${user}" "${port}" || die "SSH test failed. Check connectivity, keys, and credentials."

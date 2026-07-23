@@ -95,3 +95,35 @@ run_snapshots() {
     printf '\n'
   done
 }
+
+# Compare two snapshots for one configured server.
+run_snapshot_diff() {
+  install_error_trap
+  install_signal_traps
+
+  print_header "restic-cli diff"
+  load_global_config
+  ensure_local_restic
+
+  local server_name="$1"
+  local snapshot_a="$2"
+  local snapshot_b="$3"
+
+  load_server_config "${server_name}"
+
+  local pass_file repo_path
+  pass_file="$(password_file_path "${NAME}")"
+  repo_path="$(repository_path "${REPOSITORY}")"
+
+  [[ -f "${pass_file}" ]] || die "Password file missing for ${NAME}: ${pass_file}"
+  validate_repository "${repo_path}" "${pass_file}"
+
+  restic -r "${repo_path}" --password-file "${pass_file}" snapshots "${snapshot_a}" --host "${NAME}" >/dev/null 2>&1 || \
+    die "Snapshot ${snapshot_a} not found for ${NAME}."
+  restic -r "${repo_path}" --password-file "${pass_file}" snapshots "${snapshot_b}" --host "${NAME}" >/dev/null 2>&1 || \
+    die "Snapshot ${snapshot_b} not found for ${NAME}."
+
+  msg_info "Diff for ${NAME}: ${snapshot_a} -> ${snapshot_b}"
+  restic -r "${repo_path}" --password-file "${pass_file}" diff "${snapshot_a}" "${snapshot_b}" || \
+    die "Failed to diff snapshots for ${NAME}."
+}

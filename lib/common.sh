@@ -414,7 +414,7 @@ latest_scheduled_backup_epoch() {
 validate_retention_policy() {
   local policy="$1"
   case "${policy}" in
-    "7days"|"14days"|"30days")
+    "2snapshots"|"5snapshots"|"7snapshots")
       return 0
       ;;
     *)
@@ -423,18 +423,18 @@ validate_retention_policy() {
   esac
 }
 
-# Map retention label to restic --keep-within value.
-retention_policy_to_keep_within() {
+# Map retention label to restic --keep-last value.
+retention_policy_to_keep_last() {
   local policy="$1"
   case "${policy}" in
-    "7days")
-      printf '7d\n'
+    "2snapshots")
+      printf '2\n'
       ;;
-    "14days")
-      printf '14d\n'
+    "5snapshots")
+      printf '5\n'
       ;;
-    "30days")
-      printf '30d\n'
+    "7snapshots")
+      printf '7\n'
       ;;
     *)
       return 1
@@ -547,7 +547,7 @@ load_server_config() {
   BACKUP_TIME="${BACKUP_TIME:-02:00}"
   BACKUP_DAY="${BACKUP_DAY:-}"
   BACKUP_ANCHOR_DATE="${BACKUP_ANCHOR_DATE:-}"
-  RETENTION_POLICY="${RETENTION_POLICY:-30days}"
+  RETENTION_POLICY="${RETENTION_POLICY:-7snapshots}"
 
   [[ -n "${NAME}" ]] || die "NAME missing in ${config_path}"
   [[ -n "${HOST}" ]] || die "HOST missing in ${config_path}"

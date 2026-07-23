@@ -83,14 +83,14 @@ apply_retention_policy() {
   local repo_path="$2"
   local pass_file="$3"
   local retention_policy="$4"
-  local keep_within
+  local keep_last
 
   validate_retention_policy "${retention_policy}" || die "Invalid retention policy for ${server_name}: ${retention_policy}"
-  keep_within="$(retention_policy_to_keep_within "${retention_policy}")" || die "Cannot map retention policy for ${server_name}: ${retention_policy}"
+  keep_last="$(retention_policy_to_keep_last "${retention_policy}")" || die "Cannot map retention policy for ${server_name}: ${retention_policy}"
 
   msg_progress "Applying retention policy ${retention_policy} for ${server_name}"
   restic -r "${repo_path}" --password-file "${pass_file}" \
-    forget --host "${server_name}" --keep-within "${keep_within}" --prune --verbose
+    forget --host "${server_name}" --keep-last "${keep_last}" --prune --verbose
 }
 
 # Run backup for a single configured server.

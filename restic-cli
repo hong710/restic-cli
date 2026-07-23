@@ -31,6 +31,7 @@ Usage:
   restic-cli backup [server_name]
   restic-cli run-due
   restic-cli snapshots [server_name]
+  restic-cli diff <server_name> <snapshot_a> <snapshot_b>
   restic-cli restore [server_name] [snapshot_id] [--dry-run]
   restic-cli restore [server_name] --dry-run
 
@@ -42,6 +43,7 @@ Commands:
   backup   Run backups for all configured servers or one server
   run-due  Run backups only for servers whose configured frequency is due
   snapshots  Show snapshots for one server or all servers
+  diff     Compare two snapshots for one configured server
   restore  Restore latest or specific snapshot, optionally in dry-run preview mode
 EOF
 }
@@ -50,7 +52,7 @@ EOF
 validate_command() {
   local cmd="${1:-}"
   case "${cmd}" in
-    init|setup|servers|remove|backup|run-due|snapshots|restore)
+    init|setup|servers|remove|backup|run-due|snapshots|diff|restore)
       return 0
       ;;
     ""|-h|--help)
@@ -73,6 +75,7 @@ main() {
   local target="${2:-}"
   local extra="${3:-}"
   local extra2="${4:-}"
+  local extra3="${5:-}"
 
   validate_command "${command}"
 
@@ -119,6 +122,15 @@ main() {
         die "snapshots accepts at most one server_name argument."
       fi
       run_snapshots "${target}"
+      ;;
+    diff)
+      [[ -n "${target}" ]] || die "diff requires server_name."
+      [[ -n "${extra}" ]] || die "diff requires snapshot_a."
+      [[ -n "${extra2}" ]] || die "diff requires snapshot_b."
+      if [[ -n "${extra3}" ]]; then
+        die "diff accepts exactly three arguments: <server_name> <snapshot_a> <snapshot_b>."
+      fi
+      run_snapshot_diff "${target}" "${extra}" "${extra2}"
       ;;
     restore)
       local snapshot_arg=""

@@ -19,6 +19,7 @@ chmod +x ./systemd/install.sh
 ./restic-cli backup
 ./restic-cli run-due
 ./restic-cli snapshots
+./restic-cli diff <server_name> <snapshot_a> <snapshot_b>
 ./restic-cli restore
 ```
 
@@ -31,6 +32,7 @@ Optional target server:
 ./restic-cli restore web01 9e6af64e
 ./restic-cli restore web01 --dry-run
 ./restic-cli restore web01 9e6af64e --dry-run
+./restic-cli diff web01 180a5185 c0dc38a1
 ```
 
 ## First Run
@@ -62,7 +64,7 @@ Wizard also:
 - asks backup frequency from fixed options: once a day, once a week, every 2wk
 - asks backup time in `HH:MM`
 - asks backup day for weekly and 2-week schedules
-- asks retention policy from fixed options: 7days, 14days, 30days
+- asks retention policy from fixed options: 2snapshots, 5snapshots, 7snapshots
 - writes servers/server_name.conf
 
 ## Config Files
@@ -94,7 +96,7 @@ BACKUP_FREQUENCY="once a day"
 BACKUP_TIME="02:00"
 BACKUP_DAY=""
 BACKUP_ANCHOR_DATE=""
-RETENTION_POLICY="30days"
+RETENTION_POLICY="7snapshots"
 ```
 
 Weekly example:
@@ -175,6 +177,12 @@ Show snapshots:
 ```bash
 ./restic-cli snapshots
 ./restic-cli snapshots web01
+```
+
+Compare two snapshots for one server:
+
+```bash
+./restic-cli diff web01 180a5185 c0dc38a1
 ```
 
 Restore target is always under RESTORE_STORAGE:
