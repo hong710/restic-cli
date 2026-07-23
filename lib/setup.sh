@@ -110,9 +110,10 @@ prompt_retention_policy() {
 
   while true; do
     printf 'Retention policy options:\n'
-    printf '  1) keep last 2 snapshots\n'
-    printf '  2) keep last 5 snapshots\n'
-    printf '  3) keep last 7 snapshots\n'
+    printf '  1) keep last 1 snapshot\n'
+    printf '  2) keep last 3 snapshots\n'
+    printf '  3) keep last 5 snapshots\n'
+    printf '  4) keep last 7 snapshots\n'
     read -r -p "Select retention policy [default: ${default_value}]: " choice
 
     case "${choice}" in
@@ -120,16 +121,19 @@ prompt_retention_policy() {
         selected="${default_value}"
         ;;
       1)
-        selected="2snapshots"
+        selected="1snapshots"
         ;;
       2)
-        selected="5snapshots"
+        selected="3snapshots"
         ;;
       3)
+        selected="5snapshots"
+        ;;
+      4)
         selected="7snapshots"
         ;;
       *)
-        msg_warn "Invalid selection. Choose 1, 2, or 3."
+        msg_warn "Invalid selection. Choose 1, 2, 3, or 4."
         continue
         ;;
     esac

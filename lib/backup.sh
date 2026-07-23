@@ -73,6 +73,7 @@ run_restic_backup() {
       backup "${rel_paths[@]}" \
       --host "${server_name}" \
       --tag "server:${server_name}" \
+      --skip-if-unchanged \
       --verbose
   )
 }

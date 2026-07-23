@@ -414,7 +414,7 @@ latest_scheduled_backup_epoch() {
 validate_retention_policy() {
   local policy="$1"
   case "${policy}" in
-    "2snapshots"|"5snapshots"|"7snapshots")
+    "1snapshots"|"3snapshots"|"5snapshots"|"7snapshots")
       return 0
       ;;
     *)
@@ -427,8 +427,11 @@ validate_retention_policy() {
 retention_policy_to_keep_last() {
   local policy="$1"
   case "${policy}" in
-    "2snapshots")
-      printf '2\n'
+    "1snapshots")
+      printf '1\n'
+      ;;
+    "3snapshots")
+      printf '3\n'
       ;;
     "5snapshots")
       printf '5\n'

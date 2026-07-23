@@ -64,7 +64,8 @@ Wizard also:
 - asks backup frequency from fixed options: once a day, once a week, every 2wk
 - asks backup time in `HH:MM`
 - asks backup day for weekly and 2-week schedules
-- asks retention policy from fixed options: 2snapshots, 5snapshots, 7snapshots
+- asks retention policy from fixed options: 1snapshots, 3snapshots, 5snapshots, 7snapshots
+- skips creating a new snapshot when source data is unchanged
 - writes servers/server_name.conf
 
 ## Config Files
