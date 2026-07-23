@@ -30,8 +30,8 @@ Optional target server:
 ./restic-cli snapshots web01
 ./restic-cli restore web01
 ./restic-cli restore web01 9e6af64e
-./restic-cli restore web01 --dry-run
-./restic-cli restore web01 9e6af64e --dry-run
+./restic-cli restore web01 --no-push
+./restic-cli restore web01 9e6af64e --no-push
 ./restic-cli diff web01 180a5185 c0dc38a1
 ```
 
@@ -143,18 +143,18 @@ Restore a specific snapshot:
 ./restic-cli restore web01 9e6af64e
 ```
 
-Restore dry-run preview (no remote writes):
+Restore no-push preview (no remote writes):
 
 ```bash
-./restic-cli restore web01 --dry-run
-./restic-cli restore web01 9e6af64e --dry-run
+./restic-cli restore web01 --no-push
+./restic-cli restore web01 9e6af64e --no-push
 ```
 
 Restore flow behavior:
 
 - restores latest snapshot locally to RESTORE_STORAGE
 - can restore a specific snapshot id when provided
-- dry-run mode restores under RESTORE_STORAGE (dry-run target) and previews remote rsync changes only
+- no-push mode restores under RESTORE_STORAGE (no-push target) and previews remote rsync changes only
 - asks whether to push restored data back to remote host
 - optional rsync dry-run preview
 - asks for final apply confirmation before remote write
@@ -189,7 +189,7 @@ Restore target is always under RESTORE_STORAGE:
 
 - `RESTORE_STORAGE/web01`
 - or `RESTORE_STORAGE/web01-YYYYMMDD-HHMMSS` if existing
-- dry-run target: `RESTORE_STORAGE/web01-dry-run`
+- no-push target: `RESTORE_STORAGE/web01-dry-run`
 - or `RESTORE_STORAGE/web01-dry-run-YYYYMMDD-HHMMSS` if existing
 
 Remote push target:

@@ -177,7 +177,7 @@ restore_one_server() {
   if [[ "${restore_mode}" == "dry-run" ]]; then
     target_dir="$(resolve_restore_preview_target "${NAME}")"
     mkdir -p -- "${target_dir}"
-    msg_info "Dry-run mode: using local preview target ${target_dir} under RESTORE_STORAGE"
+    msg_info "No-push mode: using local preview target ${target_dir} under RESTORE_STORAGE"
   else
     target_dir="$(resolve_restore_target "${NAME}")"
     mkdir -p -- "${target_dir}"
@@ -201,7 +201,7 @@ restore_one_server() {
     msg_info "Preparing push of restored data to ${USER}@${HOST}"
 
     if [[ "${restore_mode}" == "dry-run" ]]; then
-      msg_info "Dry-run mode: previewing remote changes only. No remote writes will be made."
+      msg_info "No-push mode: previewing remote changes only. No remote writes will be made."
       push_restored_paths_to_remote "${target_dir}" "${HOST}" "${USER}" "${SSH_PORT}" "yes" "${paths[@]}"
     else
       if [[ "${dry_run_first}" == "yes" ]]; then
@@ -224,7 +224,7 @@ restore_one_server() {
   write_operation_log "${NAME}" "restore" "${status}" "${elapsed}" "${detail}; mode=${restore_mode}; snapshot=${snapshot_id}; target=${target_dir}; pushed_to=${USER}@${HOST}"
 
   if [[ "${restore_mode}" == "dry-run" ]]; then
-    msg_success "Dry-run restore preview completed for ${NAME}. No remote changes were applied."
+    msg_success "No-push restore preview completed for ${NAME}. No remote changes were applied."
   else
     msg_success "Restored ${NAME} into ${target_dir} and pushed back to ${USER}@${HOST}"
   fi
@@ -308,7 +308,7 @@ run_restore() {
 
   if [[ "${dry_run_mode}" == "yes" ]]; then
     restore_mode="dry-run"
-    msg_info "Restore dry-run enabled. Snapshot will be restored under RESTORE_STORAGE and remote changes previewed only."
+    msg_info "Restore no-push enabled. Snapshot will be restored under RESTORE_STORAGE and remote changes previewed only."
   else
     prompt_yes_no "Push restored data back to remote server ${requested_server}" proceed_remote_push yes
     [[ "${proceed_remote_push}" == "yes" ]] || die "Restore cancelled by user."

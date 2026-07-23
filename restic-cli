@@ -32,8 +32,8 @@ Usage:
   restic-cli run-due
   restic-cli snapshots [server_name]
   restic-cli diff <server_name> <snapshot_a> <snapshot_b>
-  restic-cli restore [server_name] [snapshot_id] [--dry-run]
-  restic-cli restore [server_name] --dry-run
+  restic-cli restore [server_name] [snapshot_id] [--no-push]
+  restic-cli restore [server_name] --no-push
 
 Commands:
   init     Interactive global configuration wizard
@@ -44,7 +44,7 @@ Commands:
   run-due  Run backups only for servers whose configured frequency is due
   snapshots  Show snapshots for one server or all servers
   diff     Compare two snapshots for one configured server
-  restore  Restore latest or specific snapshot, optionally in dry-run preview mode
+  restore  Restore latest or specific snapshot, optionally in no-push preview mode
 EOF
 }
 
@@ -134,25 +134,25 @@ main() {
       ;;
     restore)
       local snapshot_arg=""
-      local dry_run_arg="no"
+      local no_push_arg="no"
 
-      if [[ -n "${extra2}" && "${extra2}" != "--dry-run" ]]; then
-        die "restore only accepts optional --dry-run as the final argument."
+      if [[ -n "${extra2}" && "${extra2}" != "--no-push" ]]; then
+        die "restore only accepts optional --no-push as the final argument."
       fi
 
-      if [[ "${extra}" == "--dry-run" ]]; then
+      if [[ "${extra}" == "--no-push" ]]; then
         snapshot_arg="latest"
-        dry_run_arg="yes"
+        no_push_arg="yes"
       elif [[ -n "${extra}" ]]; then
         snapshot_arg="${extra}"
-        if [[ "${extra2}" == "--dry-run" ]]; then
-          dry_run_arg="yes"
+        if [[ "${extra2}" == "--no-push" ]]; then
+          no_push_arg="yes"
         fi
-      elif [[ "${extra2}" == "--dry-run" ]]; then
-        die "restore argument order invalid. Use: restore [server] [snapshot] [--dry-run]"
+      elif [[ "${extra2}" == "--no-push" ]]; then
+        die "restore argument order invalid. Use: restore [server] [snapshot] [--no-push]"
       fi
 
-      run_restore "${target}" "${snapshot_arg}" "${dry_run_arg}"
+      run_restore "${target}" "${snapshot_arg}" "${no_push_arg}"
       ;;
     *)
       die "Internal error: command dispatcher reached unexpected path."
