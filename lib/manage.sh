@@ -148,31 +148,53 @@ run_prune_identical_snapshots() {
   validate_repository "${repo_path}" "${pass_file}"
 
   local -a snapshot_meta_lines=()
-  local snapshot_id snapshot_json snapshot_tree snapshot_time snapshot_bytes snapshot_files
-  while IFS= read -r snapshot_id _; do
-    [[ "${snapshot_id}" =~ ^[0-9a-f]{8,}$ ]] || continue
+  local snapshot_json
+  snapshot_json="$(restic -r "${repo_path}" --password-file "${pass_file}" --retry-lock "${RESTIC_RETRY_LOCK_DEFAULT}" snapshots --host "${NAME}" --json)" || \
+    die "Failed to list snapshots for ${NAME}."
 
-    snapshot_json="$(restic -r "${repo_path}" --password-file "${pass_file}" --retry-lock "${RESTIC_RETRY_LOCK_DEFAULT}" cat snapshot "${snapshot_id}")" || \
-      die "Failed to read snapshot metadata for ${snapshot_id}."
-    snapshot_json="${snapshot_json//$'\n'/ }"
+  # Parse JSON with a small awk scanner to avoid requiring jq.
+  # Output format per snapshot object: time|id|tree|files|bytes
+  local -a parsed_snapshot_meta=()
+  while IFS= read -r snapshot_line; do
+    [[ -n "${snapshot_line}" ]] && parsed_snapshot_meta+=("${snapshot_line}")
+  done < <(
+    printf '%s\n' "${snapshot_json}" | awk '
+      BEGIN {
+        in_obj=0; depth=0;
+        id=""; time=""; tree=""; files="0"; bytes="0";
+      }
+      {
+        line=$0;
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", line);
 
-    [[ "${snapshot_json}" =~ \"tree\"[[:space:]]*:[[:space:]]*\"([^\"]+)\" ]] || die "Snapshot ${snapshot_id} is missing tree metadata."
-    snapshot_tree="${BASH_REMATCH[1]}"
-    [[ "${snapshot_json}" =~ \"time\"[[:space:]]*:[[:space:]]*\"([^\"]+)\" ]] || die "Snapshot ${snapshot_id} is missing time metadata."
-    snapshot_time="${BASH_REMATCH[1]}"
+        if (in_obj==0 && line ~ /^\{/) {
+          in_obj=1; depth=1;
+          id=""; time=""; tree=""; files="0"; bytes="0";
+          next;
+        }
 
-    snapshot_bytes="0"
-    if [[ "${snapshot_json}" =~ \"total_bytes_processed\"[[:space:]]*:[[:space:]]*([0-9]+) ]]; then
-      snapshot_bytes="${BASH_REMATCH[1]}"
-    fi
+        if (in_obj==1) {
+          if (line ~ /^\{/) depth++;
+          if (line ~ /^\}/) depth--;
 
-    snapshot_files="0"
-    if [[ "${snapshot_json}" =~ \"total_files_processed\"[[:space:]]*:[[:space:]]*([0-9]+) ]]; then
-      snapshot_files="${BASH_REMATCH[1]}"
-    fi
+          if (match(line, /^"id"[[:space:]]*:[[:space:]]*"([^"]+)"/, m)) id=m[1];
+          if (match(line, /^"time"[[:space:]]*:[[:space:]]*"([^"]+)"/, m)) time=m[1];
+          if (match(line, /^"tree"[[:space:]]*:[[:space:]]*"([^"]+)"/, m)) tree=m[1];
+          if (match(line, /^"total_files_processed"[[:space:]]*:[[:space:]]*([0-9]+)/, m)) files=m[1];
+          if (match(line, /^"total_bytes_processed"[[:space:]]*:[[:space:]]*([0-9]+)/, m)) bytes=m[1];
 
-    snapshot_meta_lines+=("${snapshot_time}|${snapshot_id}|${snapshot_tree}|${snapshot_files}|${snapshot_bytes}")
-  done < <(restic -r "${repo_path}" --password-file "${pass_file}" --retry-lock "${RESTIC_RETRY_LOCK_DEFAULT}" snapshots --host "${NAME}")
+          if (depth==0) {
+            if (id!="" && time!="" && tree!="") {
+              printf "%s|%s|%s|%s|%s\n", time, id, tree, files, bytes;
+            }
+            in_obj=0;
+          }
+        }
+      }
+    '
+  )
+
+  snapshot_meta_lines=("${parsed_snapshot_meta[@]}")
 
   ((${#snapshot_meta_lines[@]} > 0)) || die "No snapshots found for ${NAME}."
 
