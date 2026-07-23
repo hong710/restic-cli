@@ -59,6 +59,7 @@ run_restic_backup() {
   local paths=("$@")
 
   local -a rel_paths
+  local -a restic_args
   local p
   for p in "${paths[@]}"; do
     rel_paths+=("$(path_to_relative_entry "${p}")")
@@ -66,15 +67,26 @@ run_restic_backup() {
 
   ((${#rel_paths[@]} > 0)) || die "No paths available to back up for ${server_name}"
 
+  restic_args=(
+    -r "${repo_path}"
+    --password-file "${pass_file}"
+    backup
+    "${rel_paths[@]}"
+    --host "${server_name}"
+    --tag "server:${server_name}"
+    --verbose
+  )
+
+  if restic backup --help 2>/dev/null | grep -q -- '--skip-if-unchanged'; then
+    restic_args+=(--skip-if-unchanged)
+  else
+    msg_warn "Installed restic does not support --skip-if-unchanged; unchanged backups may still create a snapshot."
+  fi
+
   msg_progress "Creating Restic snapshot for ${server_name}"
   (
     cd -- "${staging_dir}"
-    restic -r "${repo_path}" --password-file "${pass_file}" \
-      backup "${rel_paths[@]}" \
-      --host "${server_name}" \
-      --tag "server:${server_name}" \
-      --skip-if-unchanged \
-      --verbose
+    restic "${restic_args[@]}"
   )
 }
 
