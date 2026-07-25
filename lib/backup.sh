@@ -127,7 +127,10 @@ backup_one_server() {
 
   validate_repository "${repo_path}" "${pass_file}"
 
-  staging_dir="$(create_temp_workspace "stage-${NAME}")"
+  staging_dir="${TMP_DIR_DEFAULT}/stage-${NAME}"
+  rm -rf -- "${staging_dir}"
+  mkdir -p -- "${staging_dir}"
+  register_cleanup_path "${staging_dir}"
 
   local server_log="${LOG_DIRECTORY}/backup-${NAME}-$(run_stamp).log"
   msg_info "Server backup log: ${server_log}"

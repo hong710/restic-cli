@@ -37,6 +37,12 @@ Optional target server:
 ./restic-cli prune web01
 ```
 
+Unit test for the backup flow:
+
+```bash
+bash ./tests/test_backup_flow.sh
+```
+
 ## First Run
 
 ```bash
@@ -204,6 +210,7 @@ Prune behavior:
 - runs `restic forget <ids> --prune` only after confirmation
 
 Backup runs also prune older identical snapshots automatically after retention.
+Backups stage into a stable per-server temp path so identical runs produce the same snapshot tree.
 
 Restore target is always under RESTORE_STORAGE:
 
