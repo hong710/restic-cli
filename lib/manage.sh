@@ -178,7 +178,7 @@ run_snapshot_diff() {
     die "Failed to diff snapshots for ${NAME}."
 }
 
-# Remove older snapshots whose tree is identical to a newer snapshot.
+# Remove older snapshots whose staged source paths are identical to a newer snapshot.
 run_prune_identical_snapshots() {
   install_error_trap
   install_signal_traps
@@ -198,43 +198,25 @@ run_prune_identical_snapshots() {
   [[ -f "${pass_file}" ]] || die "Password file missing for ${NAME}: ${pass_file}"
   validate_repository "${repo_path}" "${pass_file}"
 
-  local -a snapshot_meta_lines=()
   local snapshot_ids_json
   snapshot_ids_json="$(restic -r "${repo_path}" --password-file "${pass_file}" --retry-lock "${RESTIC_RETRY_LOCK_DEFAULT}" snapshots --host "${NAME}" --json)" || \
     die "Failed to list snapshots for ${NAME}."
 
-  local -a snapshot_ids=()
-  while IFS= read -r snapshot_id; do
-    [[ -n "${snapshot_id}" ]] && snapshot_ids+=("${snapshot_id}")
+  local -a snapshot_meta_lines=()
+  while IFS= read -r snapshot_line; do
+    [[ -n "${snapshot_line}" ]] && snapshot_meta_lines+=("${snapshot_line}")
   done < <(
-    printf '%s\n' "${snapshot_ids_json}" | \
-      grep -Eo '"id"[[:space:]]*:[[:space:]]*"[0-9a-f]+"' | \
-      sed -E 's/.*"([0-9a-f]+)"$/\1/'
+    printf '%s' "${snapshot_ids_json}" | python3 -c 'import json, re, sys
+data = json.load(sys.stdin)
+
+def normalize_path(path):
+    return re.sub(r"^.*?/tmp/stage-[^/]+(?:\.[^/]+)?/", "", path)
+
+for item in sorted(data, key=lambda entry: entry.get("time", "")):
+    normalized_paths = item.get("paths") or []
+    normalized_paths = " | ".join(sorted(normalize_path(path) for path in normalized_paths)) if normalized_paths else "-"
+    print("|".join([item.get("time", ""), item.get("id", ""), normalized_paths]))'
   )
-
-  local snapshot_id snapshot_json snapshot_tree snapshot_time snapshot_bytes snapshot_files
-  for snapshot_id in "${snapshot_ids[@]}"; do
-    snapshot_json="$(restic -r "${repo_path}" --password-file "${pass_file}" --retry-lock "${RESTIC_RETRY_LOCK_DEFAULT}" cat snapshot "${snapshot_id}")" || \
-      die "Failed to read snapshot metadata for ${snapshot_id}."
-    snapshot_json="${snapshot_json//$'\n'/ }"
-
-    [[ "${snapshot_json}" =~ \"tree\"[[:space:]]*:[[:space:]]*\"([^\"]+)\" ]] || die "Snapshot ${snapshot_id} is missing tree metadata."
-    snapshot_tree="${BASH_REMATCH[1]}"
-    [[ "${snapshot_json}" =~ \"time\"[[:space:]]*:[[:space:]]*\"([^\"]+)\" ]] || die "Snapshot ${snapshot_id} is missing time metadata."
-    snapshot_time="${BASH_REMATCH[1]}"
-
-    snapshot_bytes="0"
-    if [[ "${snapshot_json}" =~ \"total_bytes_processed\"[[:space:]]*:[[:space:]]*([0-9]+) ]]; then
-      snapshot_bytes="${BASH_REMATCH[1]}"
-    fi
-
-    snapshot_files="0"
-    if [[ "${snapshot_json}" =~ \"total_files_processed\"[[:space:]]*:[[:space:]]*([0-9]+) ]]; then
-      snapshot_files="${BASH_REMATCH[1]}"
-    fi
-
-    snapshot_meta_lines+=("${snapshot_time}|${snapshot_id}|${snapshot_tree}|${snapshot_files}|${snapshot_bytes}")
-  done
 
   ((${#snapshot_meta_lines[@]} > 0)) || die "No snapshots found for ${NAME}."
 
@@ -243,26 +225,22 @@ run_prune_identical_snapshots() {
     [[ -n "${snapshot_line}" ]] && sorted_snapshot_meta+=("${snapshot_line}")
   done < <(printf '%s\n' "${snapshot_meta_lines[@]}" | sort)
 
-  local -A latest_snapshot_for_tree=()
-  local -A tree_for_snapshot=()
+  local -A latest_snapshot_for_key=()
   local -A time_for_snapshot=()
-  local -A files_for_snapshot=()
-  local -A bytes_for_snapshot=()
+  local -A paths_for_snapshot=()
   local -a duplicate_snapshot_ids=()
   local snapshot_line
 
   for snapshot_line in "${sorted_snapshot_meta[@]}"; do
-    IFS='|' read -r snapshot_time snapshot_id snapshot_tree snapshot_files snapshot_bytes <<< "${snapshot_line}"
-    tree_for_snapshot["${snapshot_id}"]="${snapshot_tree}"
+    IFS='|' read -r snapshot_time snapshot_id snapshot_key <<< "${snapshot_line}"
     time_for_snapshot["${snapshot_id}"]="${snapshot_time}"
-    files_for_snapshot["${snapshot_id}"]="${snapshot_files}"
-    bytes_for_snapshot["${snapshot_id}"]="${snapshot_bytes}"
+    paths_for_snapshot["${snapshot_id}"]="${snapshot_key}"
 
-    if [[ -n "${latest_snapshot_for_tree[${snapshot_tree}]:-}" ]]; then
-      duplicate_snapshot_ids+=("${latest_snapshot_for_tree[${snapshot_tree}]}")
+    if [[ -n "${latest_snapshot_for_key[${snapshot_key}]:-}" ]]; then
+      duplicate_snapshot_ids+=("${latest_snapshot_for_key[${snapshot_key}]}")
     fi
 
-    latest_snapshot_for_tree["${snapshot_tree}"]="${snapshot_id}"
+    latest_snapshot_for_key["${snapshot_key}"]="${snapshot_id}"
   done
 
   if ((${#duplicate_snapshot_ids[@]} == 0)); then
@@ -270,19 +248,16 @@ run_prune_identical_snapshots() {
     return 0
   fi
 
-  msg_info "Found ${#duplicate_snapshot_ids[@]} older snapshot(s) with identical data for ${NAME}."
-  printf '%-12s %-20s %-8s %-12s %-12s %-12s\n' "REMOVE_ID" "TIME" "FILES" "BYTES" "TREE" "KEEP_ID"
-  printf '%-12s %-20s %-8s %-12s %-12s %-12s\n' "---------" "----" "-----" "-----" "----" "-------"
+  msg_info "Found ${#duplicate_snapshot_ids[@]} older snapshot(s) with identical staged paths for ${NAME}."
+  printf '%-12s %-20s %-54s %-12s\n' "REMOVE_ID" "TIME" "PATHS" "KEEP_ID"
+  printf '%-12s %-20s %-54s %-12s\n' "---------" "----" "-----" "-------"
 
   for snapshot_id in "${duplicate_snapshot_ids[@]}"; do
-    snapshot_tree="${tree_for_snapshot[${snapshot_id}]}"
-    printf '%-12s %-20s %-8s %-12s %-12s %-12s\n' \
+    printf '%-12s %-20s %-54s %-12s\n' \
       "${snapshot_id:0:12}" \
       "${time_for_snapshot[${snapshot_id}]:0:19}" \
-      "${files_for_snapshot[${snapshot_id}]}" \
-      "${bytes_for_snapshot[${snapshot_id}]}" \
-      "${snapshot_tree:0:12}" \
-      "${latest_snapshot_for_tree[${snapshot_tree}]:0:12}"
+      "${paths_for_snapshot[${snapshot_id}]:0:54}" \
+      "${latest_snapshot_for_key[${paths_for_snapshot[${snapshot_id}]}]:0:12}"
   done
 
   if [[ "${auto_prune}" != "yes" ]]; then
