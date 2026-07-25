@@ -30,10 +30,10 @@ resolve_restore_target() {
   printf '%s-%s\n' "${base_target}" "$(restore_stamp)"
 }
 
-# Pick a dry-run restore preview directory under RESTORE_STORAGE.
+# Pick a local no-push restore preview directory under RESTORE_STORAGE.
 resolve_restore_preview_target() {
   local server_name="$1"
-  local base_target="${RESTORE_STORAGE}/${server_name}-dry-run"
+  local base_target="${RESTORE_STORAGE}/${server_name}-local"
 
   if [[ ! -e "${base_target}" ]]; then
     printf '%s\n' "${base_target}"
@@ -292,7 +292,7 @@ run_restore() {
 
   local requested_server="${1:-}"
   local requested_snapshot="${2:-latest}"
-  local dry_run_mode="${3:-no}"
+  local dry_run_mode="${3:-yes}"
 
   if [[ "${dry_run_mode}" != "yes" && "${dry_run_mode}" != "no" ]]; then
     die "Invalid restore dry-run mode: ${dry_run_mode}"

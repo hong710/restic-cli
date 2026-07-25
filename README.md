@@ -31,8 +31,8 @@ Optional target server:
 ./restic-cli snapshots web01
 ./restic-cli restore web01
 ./restic-cli restore web01 9e6af64e
-./restic-cli restore web01 --no-push
-./restic-cli restore web01 9e6af64e --no-push
+./restic-cli restore web01 --push
+./restic-cli restore web01 9e6af64e --push
 ./restic-cli diff web01 180a5185 c0dc38a1
 ./restic-cli prune web01
 ```
@@ -40,7 +40,10 @@ Optional target server:
 Unit test for the backup flow:
 
 ```bash
+bash ./tests/run_all.sh
 bash ./tests/test_backup_flow.sh
+bash ./tests/test_prune_identical_snapshots.sh
+bash ./tests/test_restore_defaults.sh
 ```
 
 ## First Run
@@ -152,21 +155,20 @@ Restore a specific snapshot:
 ./restic-cli restore web01 9e6af64e
 ```
 
-Restore no-push preview (no remote writes):
+Restore with remote push (explicit opt-in):
 
 ```bash
-./restic-cli restore web01 --no-push
-./restic-cli restore web01 9e6af64e --no-push
+./restic-cli restore web01 --push
+./restic-cli restore web01 9e6af64e --push
 ```
 
 Restore flow behavior:
 
-- restores latest snapshot locally to RESTORE_STORAGE
+- defaults to no-push mode (no remote writes)
 - can restore a specific snapshot id when provided
 - no-push mode restores under RESTORE_STORAGE (no-push target) and previews remote rsync changes only
-- asks whether to push restored data back to remote host
-- optional rsync dry-run preview
-- asks for final apply confirmation before remote write
+- use `--push` to enable remote writes
+- `--push` asks for final apply confirmation before remote write
 - pushes restored paths back to original remote paths over SSH
 
 List configured backup servers:
@@ -204,9 +206,9 @@ Prune older identical snapshots for one server:
 
 Prune behavior:
 
-- scans snapshots for the server and groups them by identical restic tree id
-- shows older duplicate snapshots with time, files, and bytes processed
-- asks for confirmation before forgetting those older identical snapshots
+- scans snapshots for the server and groups them by normalized staged source paths
+- shows older duplicate snapshots with time and paths
+- asks for confirmation before forgetting older duplicates when run manually
 - runs `restic forget <ids> --prune` only after confirmation
 
 Backup runs also prune older identical snapshots automatically after retention.
@@ -216,8 +218,8 @@ Restore target is always under RESTORE_STORAGE:
 
 - `RESTORE_STORAGE/web01`
 - or `RESTORE_STORAGE/web01-YYYYMMDD-HHMMSS` if existing
-- no-push target: `RESTORE_STORAGE/web01-dry-run`
-- or `RESTORE_STORAGE/web01-dry-run-YYYYMMDD-HHMMSS` if existing
+- no-push target: `RESTORE_STORAGE/web01-local`
+- or `RESTORE_STORAGE/web01-local-YYYYMMDD-HHMMSS` if existing
 
 Remote push target:
 
