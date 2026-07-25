@@ -92,7 +92,7 @@ run_snapshots() {
     require_command python3
 
     msg_info "Snapshots for ${NAME}"
-    local snapshot_json snapshot_details_json snapshot_id snapshot_time snapshot_hostname snapshot_tags snapshot_paths snapshot_bytes snapshot_size
+    local snapshot_json snapshot_details_json snapshot_stats_json snapshot_id snapshot_time snapshot_hostname snapshot_tags snapshot_paths snapshot_bytes snapshot_size
     local -a snapshot_ids=()
     local -a snapshot_details=()
 
@@ -109,18 +109,18 @@ run_snapshots() {
     printf '%-10s %-20s %-14s %-18s %-12s %s\n' "----------" "----" "----" "----" "----" "-----"
 
     for snapshot_id in "${snapshot_ids[@]}"; do
-      snapshot_details_json="$(restic -r "${repo_path}" --password-file "${pass_file}" --retry-lock "${RESTIC_RETRY_LOCK_DEFAULT}" cat snapshot "${snapshot_id}")" || \
+      snapshot_details_json="$(printf '%s' "${snapshot_json}" | python3 -c 'import json, sys; snapshot_id = sys.argv[1]; data = json.load(sys.stdin); item = next((entry for entry in data if entry.get("id") == snapshot_id), None); print("|".join([item.get("time", ""), item.get("hostname", ""), ", ".join(item.get("tags") or []) or "-", ", ".join(item.get("paths") or []) or "-"])) if item is not None else sys.exit(1)' "${snapshot_id}")" || \
         die "Failed to read snapshot metadata for ${snapshot_id}."
 
-      mapfile -t snapshot_details < <(
-        printf '%s' "${snapshot_details_json}" | python3 -c 'import json, sys; obj = json.load(sys.stdin); summary = obj.get("summary") or {}; tags = ", ".join(obj.get("tags") or []) or "-"; paths = ", ".join(obj.get("paths") or []) or "-"; print(obj.get("time", "")); print(obj.get("hostname", "")); print(tags); print(paths); print(summary.get("total_bytes_processed", 0))'
-      )
+      snapshot_stats_json="$(restic -r "${repo_path}" --password-file "${pass_file}" --retry-lock "${RESTIC_RETRY_LOCK_DEFAULT}" stats --mode restore-size --json --host "${NAME}" "${snapshot_id}")" || \
+        die "Failed to calculate size for snapshot ${snapshot_id}."
 
-      snapshot_time="${snapshot_details[0]:-}"
-      snapshot_hostname="${snapshot_details[1]:-}"
-      snapshot_tags="${snapshot_details[2]:-}"
-      snapshot_paths="${snapshot_details[3]:-}"
-      snapshot_bytes="${snapshot_details[4]:-0}"
+      IFS='|' read -r snapshot_time snapshot_hostname snapshot_tags snapshot_paths <<< "${snapshot_details_json}"
+
+      mapfile -t snapshot_stats < <(
+        printf '%s' "${snapshot_stats_json}" | python3 -c 'import json, sys; obj = json.load(sys.stdin); print(obj.get("total_size", 0))'
+      )
+      snapshot_bytes="${snapshot_stats[0]:-0}"
 
       snapshot_size="$(format_bytes "${snapshot_bytes}")"
 
