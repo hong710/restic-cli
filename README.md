@@ -4,7 +4,7 @@
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y bash rsync openssh-client restic openssl
+sudo apt-get install -y bash python3 rsync openssh-client restic openssl
 chmod +x ./restic-cli
 chmod +x ./systemd/install.sh
 ```
@@ -181,6 +181,8 @@ Show snapshots:
 ./restic-cli snapshots
 ./restic-cli snapshots web01
 ```
+
+The snapshots table includes a size column between tags and paths.
 
 Compare two snapshots for one server:
 

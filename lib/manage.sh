@@ -89,9 +89,49 @@ run_snapshots() {
 
     [[ -f "${pass_file}" ]] || die "Password file missing for ${NAME}: ${pass_file}"
     validate_repository "${repo_path}" "${pass_file}"
+    require_command python3
 
     msg_info "Snapshots for ${NAME}"
-    restic -r "${repo_path}" --password-file "${pass_file}" --retry-lock "${RESTIC_RETRY_LOCK_DEFAULT}" snapshots --host "${NAME}" || die "Failed to list snapshots for ${NAME}"
+    local snapshot_json snapshot_details_json snapshot_id snapshot_time snapshot_hostname snapshot_tags snapshot_paths snapshot_bytes snapshot_size
+    local -a snapshot_ids=()
+    local -a snapshot_details=()
+
+    snapshot_json="$(restic -r "${repo_path}" --password-file "${pass_file}" --retry-lock "${RESTIC_RETRY_LOCK_DEFAULT}" snapshots --host "${NAME}" --json)" || \
+      die "Failed to list snapshots for ${NAME}."
+
+    mapfile -t snapshot_ids < <(
+      printf '%s' "${snapshot_json}" | python3 -c 'import json, sys; data = json.load(sys.stdin); [print(item["id"]) for item in data]'
+    )
+
+    ((${#snapshot_ids[@]} > 0)) || die "No snapshots found for ${NAME}."
+
+    printf '%-10s %-20s %-14s %-18s %-12s %s\n' "ID" "Time" "Host" "Tags" "Size" "Paths"
+    printf '%-10s %-20s %-14s %-18s %-12s %s\n' "----------" "----" "----" "----" "----" "-----"
+
+    for snapshot_id in "${snapshot_ids[@]}"; do
+      snapshot_details_json="$(restic -r "${repo_path}" --password-file "${pass_file}" --retry-lock "${RESTIC_RETRY_LOCK_DEFAULT}" cat snapshot "${snapshot_id}")" || \
+        die "Failed to read snapshot metadata for ${snapshot_id}."
+
+      mapfile -t snapshot_details < <(
+        printf '%s' "${snapshot_details_json}" | python3 -c 'import json, sys; obj = json.load(sys.stdin); summary = obj.get("summary") or {}; tags = ", ".join(obj.get("tags") or []) or "-"; paths = ", ".join(obj.get("paths") or []) or "-"; print(obj.get("time", "")); print(obj.get("hostname", "")); print(tags); print(paths); print(summary.get("total_bytes_processed", 0))'
+      )
+
+      snapshot_time="${snapshot_details[0]:-}"
+      snapshot_hostname="${snapshot_details[1]:-}"
+      snapshot_tags="${snapshot_details[2]:-}"
+      snapshot_paths="${snapshot_details[3]:-}"
+      snapshot_bytes="${snapshot_details[4]:-0}"
+
+      snapshot_size="$(format_bytes "${snapshot_bytes}")"
+
+      printf '%-10s %-20s %-14s %-18s %-12s %s\n' \
+        "${snapshot_id:0:8}" \
+        "${snapshot_time:0:19}" \
+        "${snapshot_hostname}" \
+        "${snapshot_tags}" \
+        "${snapshot_size}" \
+        "${snapshot_paths}"
+    done
     printf '\n'
   done
 }

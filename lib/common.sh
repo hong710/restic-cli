@@ -102,6 +102,17 @@ msg_success() {
   printf '%b[%s] OK  %b %s\n' "${C_GREEN}" "$(now_local)" "${C_RESET}" "${text}"
 }
 
+# Format a byte count for display.
+format_bytes() {
+  local bytes="${1:-0}"
+
+  if command -v numfmt >/dev/null 2>&1; then
+    numfmt --to=iec --suffix=B --format='%.1f' <<< "${bytes}" 2>/dev/null || printf '%sB' "${bytes}"
+  else
+    printf '%sB' "${bytes}"
+  fi
+}
+
 # Print a red error line to stderr.
 msg_error() {
   local text="$1"
