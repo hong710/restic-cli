@@ -188,6 +188,7 @@ run_prune_identical_snapshots() {
   ensure_local_restic
 
   local server_name="$1"
+  local auto_prune="${2:-no}"
   load_server_config "${server_name}"
 
   local pass_file repo_path
@@ -284,9 +285,11 @@ run_prune_identical_snapshots() {
       "${latest_snapshot_for_tree[${snapshot_tree}]:0:12}"
   done
 
-  local confirm_prune=""
-  prompt_yes_no "Forget these older identical snapshots and run restic prune" confirm_prune no
-  [[ "${confirm_prune}" == "yes" ]] || die "Prune cancelled by user."
+  if [[ "${auto_prune}" != "yes" ]]; then
+    local confirm_prune=""
+    prompt_yes_no "Forget these older identical snapshots and run restic prune" confirm_prune no
+    [[ "${confirm_prune}" == "yes" ]] || die "Prune cancelled by user."
+  fi
 
   restic -r "${repo_path}" --password-file "${pass_file}" --retry-lock "${RESTIC_RETRY_LOCK_DEFAULT}" \
     forget "${duplicate_snapshot_ids[@]}" --prune --verbose || die "Failed to forget identical snapshots for ${NAME}."

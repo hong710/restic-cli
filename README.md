@@ -203,6 +203,8 @@ Prune behavior:
 - asks for confirmation before forgetting those older identical snapshots
 - runs `restic forget <ids> --prune` only after confirmation
 
+Backup runs also prune older identical snapshots automatically after retention.
+
 Restore target is always under RESTORE_STORAGE:
 
 - `RESTORE_STORAGE/web01`

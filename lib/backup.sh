@@ -140,6 +140,7 @@ backup_one_server() {
     stage_remote_data "${staging_dir}" "${HOST}" "${USER}" "${SSH_PORT}" "${paths[@]}"
     run_restic_backup "${NAME}" "${repo_path}" "${pass_file}" "${staging_dir}" "${paths[@]}"
     apply_retention_policy "${NAME}" "${repo_path}" "${pass_file}" "${RETENTION_POLICY}"
+    run_prune_identical_snapshots "${NAME}" yes
     record_last_backup_epoch "${NAME}"
 
     msg_success "Backup completed for ${NAME}"
