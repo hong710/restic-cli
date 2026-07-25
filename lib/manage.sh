@@ -92,7 +92,7 @@ run_snapshots() {
     require_command python3
 
     msg_info "Snapshots for ${NAME}"
-    local snapshot_json snapshot_details_json snapshot_stats_json snapshot_id snapshot_time snapshot_hostname snapshot_tags snapshot_paths snapshot_bytes snapshot_size
+    local snapshot_json snapshot_details_json snapshot_restore_json snapshot_raw_json snapshot_id snapshot_time snapshot_hostname snapshot_tags snapshot_paths snapshot_restore_bytes snapshot_raw_bytes snapshot_data_size snapshot_snapshot_size
     local -a snapshot_ids=()
     local -a snapshot_details=()
 
@@ -105,31 +105,41 @@ run_snapshots() {
 
     ((${#snapshot_ids[@]} > 0)) || die "No snapshots found for ${NAME}."
 
-    printf '%-10s %-20s %-14s %-22s %-12s %s\n' "ID" "Time" "Host" "Tags" "Size" "Paths"
-    printf '%-10s %-20s %-14s %-22s %-12s %s\n' "----------" "----" "----" "----" "----" "-----"
+    printf '%-10s %-20s %-14s %-24s %-12s %-14s %s\n' "ID" "Time" "Host" "Tags" "Data Size" "Snapshot Size" "Paths"
+    printf '%-10s %-20s %-14s %-24s %-12s %-14s %s\n' "----------" "----" "----" "----" "---------" "-------------" "-----"
 
     for snapshot_id in "${snapshot_ids[@]}"; do
       snapshot_details_json="$(printf '%s' "${snapshot_json}" | python3 -c 'import json, sys; snapshot_id = sys.argv[1]; data = json.load(sys.stdin); item = next((entry for entry in data if entry.get("id") == snapshot_id), None); print("|".join([item.get("time", ""), item.get("hostname", ""), ", ".join(item.get("tags") or []) or "-", ", ".join(item.get("paths") or []) or "-"])) if item is not None else sys.exit(1)' "${snapshot_id}")" || \
         die "Failed to read snapshot metadata for ${snapshot_id}."
 
-      snapshot_stats_json="$(restic -r "${repo_path}" --password-file "${pass_file}" --retry-lock "${RESTIC_RETRY_LOCK_DEFAULT}" stats --mode restore-size --json "${snapshot_id}")" || \
-        die "Failed to calculate size for snapshot ${snapshot_id}."
+      snapshot_restore_json="$(restic -r "${repo_path}" --password-file "${pass_file}" --retry-lock "${RESTIC_RETRY_LOCK_DEFAULT}" stats --mode restore-size --json "${snapshot_id}")" || \
+        die "Failed to calculate restore size for snapshot ${snapshot_id}."
+
+      snapshot_raw_json="$(restic -r "${repo_path}" --password-file "${pass_file}" --retry-lock "${RESTIC_RETRY_LOCK_DEFAULT}" stats --mode raw-data --json "${snapshot_id}")" || \
+        die "Failed to calculate raw data size for snapshot ${snapshot_id}."
 
       IFS='|' read -r snapshot_time snapshot_hostname snapshot_tags snapshot_paths <<< "${snapshot_details_json}"
 
-      mapfile -t snapshot_stats < <(
-        printf '%s' "${snapshot_stats_json}" | python3 -c 'import json, sys; obj = json.load(sys.stdin); print(obj.get("total_size", 0))'
+      mapfile -t snapshot_restore_stats < <(
+        printf '%s' "${snapshot_restore_json}" | python3 -c 'import json, sys; obj = json.load(sys.stdin); print(obj.get("total_size", 0))'
       )
-      snapshot_bytes="${snapshot_stats[0]:-0}"
+      snapshot_restore_bytes="${snapshot_restore_stats[0]:-0}"
 
-      snapshot_size="$(format_bytes "${snapshot_bytes}")"
+      mapfile -t snapshot_raw_stats < <(
+        printf '%s' "${snapshot_raw_json}" | python3 -c 'import json, sys; obj = json.load(sys.stdin); print(obj.get("total_size", 0))'
+      )
+      snapshot_raw_bytes="${snapshot_raw_stats[0]:-0}"
 
-      printf '%-10s %-20s %-14s %-18s %-12s %s\n' \
+      snapshot_data_size="$(format_bytes "${snapshot_restore_bytes}")"
+      snapshot_snapshot_size="$(format_bytes "${snapshot_raw_bytes}")"
+
+      printf '%-10s %-20s %-14s %-24s %-12s %-14s %s\n' \
         "${snapshot_id:0:8}" \
         "${snapshot_time:0:19}" \
         "${snapshot_hostname}" \
         "${snapshot_tags}" \
-        "${snapshot_size}" \
+        "${snapshot_data_size}" \
+        "${snapshot_snapshot_size}" \
         "${snapshot_paths}"
     done
     printf '\n'

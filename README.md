@@ -182,7 +182,7 @@ Show snapshots:
 ./restic-cli snapshots web01
 ```
 
-The snapshots table includes a size column between tags and paths.
+The snapshots table includes two size columns between tags and paths: data size and snapshot size.
 
 Compare two snapshots for one server:
 
