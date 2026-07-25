@@ -105,14 +105,14 @@ run_snapshots() {
 
     ((${#snapshot_ids[@]} > 0)) || die "No snapshots found for ${NAME}."
 
-    printf '%-10s %-20s %-14s %-18s %-12s %s\n' "ID" "Time" "Host" "Tags" "Size" "Paths"
-    printf '%-10s %-20s %-14s %-18s %-12s %s\n' "----------" "----" "----" "----" "----" "-----"
+    printf '%-10s %-20s %-14s %-22s %-12s %s\n' "ID" "Time" "Host" "Tags" "Size" "Paths"
+    printf '%-10s %-20s %-14s %-22s %-12s %s\n' "----------" "----" "----" "----" "----" "-----"
 
     for snapshot_id in "${snapshot_ids[@]}"; do
       snapshot_details_json="$(printf '%s' "${snapshot_json}" | python3 -c 'import json, sys; snapshot_id = sys.argv[1]; data = json.load(sys.stdin); item = next((entry for entry in data if entry.get("id") == snapshot_id), None); print("|".join([item.get("time", ""), item.get("hostname", ""), ", ".join(item.get("tags") or []) or "-", ", ".join(item.get("paths") or []) or "-"])) if item is not None else sys.exit(1)' "${snapshot_id}")" || \
         die "Failed to read snapshot metadata for ${snapshot_id}."
 
-      snapshot_stats_json="$(restic -r "${repo_path}" --password-file "${pass_file}" --retry-lock "${RESTIC_RETRY_LOCK_DEFAULT}" stats --mode restore-size --json --host "${NAME}" "${snapshot_id}")" || \
+      snapshot_stats_json="$(restic -r "${repo_path}" --password-file "${pass_file}" --retry-lock "${RESTIC_RETRY_LOCK_DEFAULT}" stats --mode restore-size --json "${snapshot_id}")" || \
         die "Failed to calculate size for snapshot ${snapshot_id}."
 
       IFS='|' read -r snapshot_time snapshot_hostname snapshot_tags snapshot_paths <<< "${snapshot_details_json}"
