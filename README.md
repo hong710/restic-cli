@@ -9,6 +9,19 @@ chmod +x ./restic-cli
 chmod +x ./systemd/install.sh
 ```
 
+Optional global command symlink:
+
+```bash
+sudo ln -s "$(pwd)/restic-cli" /usr/local/bin/restic-cli
+restic-cli --help
+```
+
+If the symlink already exists and should be replaced:
+
+```bash
+sudo ln -sf "$(pwd)/restic-cli" /usr/local/bin/restic-cli
+```
+
 ## Required Commands
 
 ```bash
