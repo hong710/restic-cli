@@ -92,12 +92,50 @@ JSON
       return 0
     fi
 
+    if [[ "${TEST_SCENARIO}" == "dirs_only_changed" ]]; then
+      cat <<'JSON'
+[
+  {"time":"2026-07-25T03:16:28","id":"old1","paths":["/home/nfs/restic/restic-cli/tmp/stage-prod.Ejbalm/root/app/finbook/docker/data"],"hostname":"prod","tree":"tree-abc"},
+  {"time":"2026-07-25T04:01:27","id":"new3","paths":["/home/nfs/restic/restic-cli/tmp/stage-prod/root/app/finbook/docker/data"],"hostname":"prod","tree":"tree-def"}
+]
+JSON
+      return 0
+    fi
+
+    if [[ "${TEST_SCENARIO}" == "trailing_slash" ]]; then
+      cat <<'JSON'
+[
+  {"time":"2026-07-25T03:16:28","id":"old1","paths":["/home/nfs/restic/restic-cli/tmp/stage-prod.Ejbalm/root/app/finbook/docker/data/"],"hostname":"prod","tree":"tree-abc"},
+  {"time":"2026-07-25T04:01:27","id":"new3","paths":["/home/nfs/restic/restic-cli/tmp/stage-prod/root/app/finbook/docker/data"],"hostname":"prod","tree":"tree-def"}
+]
+JSON
+      return 0
+    fi
+
     cat <<'JSON'
 [
   {"time":"2026-07-25T03:16:28","id":"old1","paths":["/home/nfs/restic/restic-cli/tmp/stage-prod.Ejbalm/root/app/finbook/docker/data"],"hostname":"prod","tree":"tree-abc"},
   {"time":"2026-07-25T04:01:27","id":"new3","paths":["/home/nfs/restic/restic-cli/tmp/stage-prod/root/app/finbook/docker/data"],"hostname":"prod","tree":"tree-def"}
 ]
 JSON
+    return 0
+  fi
+
+  if [[ "${joined}" == *' diff old1 new3' ]]; then
+    if [[ "${TEST_SCENARIO}" == "dirs_only_changed" || "${TEST_SCENARIO}" == "trailing_slash" ]]; then
+      cat <<'EOF'
+Files:           0 new,     0 removed,     0 changed
+Dirs:            0 new,     0 removed,     3 changed
+Others:          0 new,     0 removed
+EOF
+      return 0
+    fi
+
+    cat <<'EOF'
+Files:           0 new,     0 removed,     1 changed
+Dirs:            0 new,     0 removed,     3 changed
+Others:          0 new,     0 removed
+EOF
     return 0
   fi
 
@@ -120,6 +158,22 @@ forget_args="$(<"${tmp_root}/forget_args")"
 assert_eq 1 "$(count_matches 'old1' "${forget_args}")" "older snapshot old1 should be forgotten"
 assert_eq 1 "$(count_matches 'old2' "${forget_args}")" "older snapshot old2 should be forgotten"
 assert_eq 0 "$(count_matches 'new3' "${forget_args}")" "latest snapshot new3 should not be forgotten"
+
+rm -f -- "${tmp_root}/forget_args"
+TEST_SCENARIO="dirs_only_changed"
+run_prune_identical_snapshots "prod" yes
+
+forget_args="$(<"${tmp_root}/forget_args")"
+assert_eq 1 "$(count_matches 'old1' "${forget_args}")" "dirs-only changed should forget older snapshot"
+assert_eq 0 "$(count_matches 'new3' "${forget_args}")" "dirs-only changed should keep latest snapshot"
+
+rm -f -- "${tmp_root}/forget_args"
+TEST_SCENARIO="trailing_slash"
+run_prune_identical_snapshots "prod" yes
+
+forget_args="$(<"${tmp_root}/forget_args")"
+assert_eq 1 "$(count_matches 'old1' "${forget_args}")" "trailing slash path should still be treated as duplicate"
+assert_eq 0 "$(count_matches 'new3' "${forget_args}")" "trailing slash path should keep latest snapshot"
 
 rm -f -- "${tmp_root}/forget_args"
 TEST_SCENARIO="changed"
