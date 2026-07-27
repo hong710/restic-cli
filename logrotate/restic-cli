@@ -1,4 +1,4 @@
-/home/sdb/dev/restic_backup/logs/backup.log /home/sdb/dev/restic_backup/logs/backup-*.log /home/sdb/dev/restic_backup/logs/restore-*.log {
+__LOG_DIRECTORY__/backup.log __LOG_DIRECTORY__/backup-*.log __LOG_DIRECTORY__/restore-*.log {
     daily
     rotate 30
     missingok

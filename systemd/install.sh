@@ -77,9 +77,31 @@ install_timer_unit() {
   cp -f -- "${TIMER_SOURCE_PATH}" "${TIMER_TARGET_PATH}"
 }
 
-# Copy the logrotate config as-is.
+# Resolve the log directory from config.conf, falling back to project default.
+resolve_log_directory() {
+  local default_log_dir="${PROJECT_ROOT}/logs"
+
+  if [[ -f "${PROJECT_ROOT}/config.conf" ]]; then
+    local configured_log_dir
+    configured_log_dir="$(bash -c 'set -Eeuo pipefail; source "$1"; printf "%s" "${LOG_DIRECTORY:-}"' _ "${PROJECT_ROOT}/config.conf" 2>/dev/null || true)"
+    if [[ -n "${configured_log_dir}" ]]; then
+      printf '%s\n' "${configured_log_dir}"
+      return 0
+    fi
+  fi
+
+  printf '%s\n' "${default_log_dir}"
+}
+
+# Copy the logrotate config and replace placeholders with real paths.
 install_logrotate_config() {
+  local log_directory escaped_log_directory
+
+  log_directory="$(resolve_log_directory)"
+  escaped_log_directory="$(printf '%s' "${log_directory}" | sed 's/[\\/&]/\\\\&/g')"
+
   cp -f -- "${LOGROTATE_SOURCE_PATH}" "${LOGROTATE_TARGET_PATH}"
+  sed -i "s|__LOG_DIRECTORY__|${escaped_log_directory}|g" "${LOGROTATE_TARGET_PATH}"
 }
 
 # Install, reload, and enable the scheduler timer.
