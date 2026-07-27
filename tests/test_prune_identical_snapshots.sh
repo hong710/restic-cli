@@ -75,15 +75,27 @@ prompt_yes_no() {
   printf -v "${_result_var}" '%s' yes
 }
 
+TEST_SCENARIO="duplicates"
+
 restic() {
   local joined="$*"
 
   if [[ "${joined}" == *' snapshots --host prod --json' ]]; then
+    if [[ "${TEST_SCENARIO}" == "duplicates" ]]; then
+      cat <<'JSON'
+[
+  {"time":"2026-07-25T03:16:28","id":"old1","paths":["/home/nfs/restic/restic-cli/tmp/stage-prod.Ejbalm/root/app/finbook/docker/data"],"hostname":"prod","tree":"tree-abc"},
+  {"time":"2026-07-25T03:23:26","id":"old2","paths":["/home/nfs/restic/restic-cli/tmp/stage-prod.FxX35Z/root/app/finbook/docker/data"],"hostname":"prod","tree":"tree-abc"},
+  {"time":"2026-07-25T04:01:27","id":"new3","paths":["/home/nfs/restic/restic-cli/tmp/stage-prod/root/app/finbook/docker/data"],"hostname":"prod","tree":"tree-abc"}
+]
+JSON
+      return 0
+    fi
+
     cat <<'JSON'
 [
-  {"time":"2026-07-25T03:16:28","id":"old1","paths":["/home/nfs/restic/restic-cli/tmp/stage-prod.Ejbalm/root/app/finbook/docker/data"],"hostname":"prod"},
-  {"time":"2026-07-25T03:23:26","id":"old2","paths":["/home/nfs/restic/restic-cli/tmp/stage-prod.FxX35Z/root/app/finbook/docker/data"],"hostname":"prod"},
-  {"time":"2026-07-25T04:01:27","id":"new3","paths":["/home/nfs/restic/restic-cli/tmp/stage-prod/root/app/finbook/docker/data"],"hostname":"prod"}
+  {"time":"2026-07-25T03:16:28","id":"old1","paths":["/home/nfs/restic/restic-cli/tmp/stage-prod.Ejbalm/root/app/finbook/docker/data"],"hostname":"prod","tree":"tree-abc"},
+  {"time":"2026-07-25T04:01:27","id":"new3","paths":["/home/nfs/restic/restic-cli/tmp/stage-prod/root/app/finbook/docker/data"],"hostname":"prod","tree":"tree-def"}
 ]
 JSON
     return 0
@@ -108,5 +120,13 @@ forget_args="$(<"${tmp_root}/forget_args")"
 assert_eq 1 "$(count_matches 'old1' "${forget_args}")" "older snapshot old1 should be forgotten"
 assert_eq 1 "$(count_matches 'old2' "${forget_args}")" "older snapshot old2 should be forgotten"
 assert_eq 0 "$(count_matches 'new3' "${forget_args}")" "latest snapshot new3 should not be forgotten"
+
+rm -f -- "${tmp_root}/forget_args"
+TEST_SCENARIO="changed"
+run_prune_identical_snapshots "prod" yes
+
+if [[ -f "${tmp_root}/forget_args" ]]; then
+  fail "changed snapshot content should not be forgotten"
+fi
 
 printf 'TEST PASS: prune groups staged-path duplicates\n'

@@ -206,16 +206,7 @@ run_prune_identical_snapshots() {
   while IFS= read -r snapshot_line; do
     [[ -n "${snapshot_line}" ]] && snapshot_meta_lines+=("${snapshot_line}")
   done < <(
-    printf '%s' "${snapshot_ids_json}" | python3 -c 'import json, re, sys
-data = json.load(sys.stdin)
-
-def normalize_path(path):
-    return re.sub(r"^.*?/tmp/stage-[^/]+(?:\.[^/]+)?/", "", path)
-
-for item in sorted(data, key=lambda entry: entry.get("time", "")):
-    normalized_paths = item.get("paths") or []
-    normalized_paths = " | ".join(sorted(normalize_path(path) for path in normalized_paths)) if normalized_paths else "-"
-    print("|".join([item.get("time", ""), item.get("id", ""), normalized_paths]))'
+    printf '%s' "${snapshot_ids_json}" | python3 -c 'import json, re, sys; data = json.load(sys.stdin); normalize = lambda path: re.sub(r"^.*?/tmp/stage-[^/]+(?:\.[^/]+)?/", "", path); [print("|".join([item.get("time", ""), item.get("id", ""), (" | ".join(sorted(normalize(path) for path in (item.get("paths") or []))) if (item.get("paths") or []) else "-"), item.get("tree") or "-"])) for item in sorted(data, key=lambda entry: entry.get("time", ""))]'
   )
 
   ((${#snapshot_meta_lines[@]} > 0)) || die "No snapshots found for ${NAME}."
@@ -227,14 +218,17 @@ for item in sorted(data, key=lambda entry: entry.get("time", "")):
 
   local -A latest_snapshot_for_key=()
   local -A time_for_snapshot=()
-  local -A paths_for_snapshot=()
+  local -A display_paths_for_snapshot=()
+  local -A key_for_snapshot=()
   local -a duplicate_snapshot_ids=()
   local snapshot_line
 
   for snapshot_line in "${sorted_snapshot_meta[@]}"; do
-    IFS='|' read -r snapshot_time snapshot_id snapshot_key <<< "${snapshot_line}"
+    IFS='|' read -r snapshot_time snapshot_id snapshot_paths snapshot_tree <<< "${snapshot_line}"
+    snapshot_key="${snapshot_paths}@@${snapshot_tree}"
     time_for_snapshot["${snapshot_id}"]="${snapshot_time}"
-    paths_for_snapshot["${snapshot_id}"]="${snapshot_key}"
+    display_paths_for_snapshot["${snapshot_id}"]="${snapshot_paths}"
+    key_for_snapshot["${snapshot_id}"]="${snapshot_key}"
 
     if [[ -n "${latest_snapshot_for_key[${snapshot_key}]:-}" ]]; then
       duplicate_snapshot_ids+=("${latest_snapshot_for_key[${snapshot_key}]}")
@@ -256,8 +250,8 @@ for item in sorted(data, key=lambda entry: entry.get("time", "")):
     printf '%-12s %-20s %-54s %-12s\n' \
       "${snapshot_id:0:12}" \
       "${time_for_snapshot[${snapshot_id}]:0:19}" \
-      "${paths_for_snapshot[${snapshot_id}]:0:54}" \
-      "${latest_snapshot_for_key[${paths_for_snapshot[${snapshot_id}]}]:0:12}"
+      "${display_paths_for_snapshot[${snapshot_id}]:0:54}" \
+      "${latest_snapshot_for_key[${key_for_snapshot[${snapshot_id}]}]:0:12}"
   done
 
   if [[ "${auto_prune}" != "yes" ]]; then
