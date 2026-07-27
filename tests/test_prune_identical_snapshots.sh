@@ -150,6 +150,15 @@ EOF
       return 0
     fi
 
+    if [[ "${TEST_SCENARIO}" == "dirs_line_no_changed" ]]; then
+      cat <<'EOF'
+Files:           0 new,     0 removed,     0 changed
+Dirs:            0 new,     0 removed
+Others:          0 new,     0 removed
+EOF
+      return 0
+    fi
+
     cat <<'EOF'
 Files:           0 new,     0 removed,     1 changed
 Dirs:            0 new,     0 removed,     3 changed
@@ -209,5 +218,13 @@ run_prune_identical_snapshots "prod" yes
 if [[ -f "${tmp_root}/forget_args" ]]; then
   fail "new directory should prevent pruning as identical"
 fi
+
+rm -f -- "${tmp_root}/forget_args"
+TEST_SCENARIO="dirs_line_no_changed"
+run_prune_identical_snapshots "prod" yes
+
+forget_args="$(<"${tmp_root}/forget_args")"
+assert_eq 1 "$(count_matches 'old1' "${forget_args}")" "dirs line without changed count should still be parsed as identical"
+assert_eq 0 "$(count_matches 'new3' "${forget_args}")" "dirs line without changed count should keep latest snapshot"
 
 printf 'TEST PASS: prune groups staged-path duplicates\n'

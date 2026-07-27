@@ -214,18 +214,7 @@ run_prune_identical_snapshots() {
     diff_output="$(restic -r "${repo_path}" --password-file "${pass_file}" --retry-lock "${RESTIC_RETRY_LOCK_DEFAULT}" diff "${old_snapshot_id}" "${new_snapshot_id}")" || \
       die "Failed to diff snapshots ${old_snapshot_id} and ${new_snapshot_id} for ${NAME}."
 
-    parsed_counts="$(printf '%s' "${diff_output}" | python3 -c 'import re, sys; text = sys.stdin.read();
-files = re.search(r"^Files:\s+(\d+)\s+new,\s+(\d+)\s+removed,\s+(\d+)\s+changed", text, re.M)
-dirs = re.search(r"^Dirs:\s+(\d+)\s+new,\s+(\d+)\s+removed,\s+(\d+)\s+changed", text, re.M)
-others = re.search(r"^Others:\s+(\d+)\s+new,\s+(\d+)\s+removed", text, re.M)
-if not files or not dirs:
-    sys.exit(1)
-vals = [*files.groups(), *dirs.groups()]
-if others:
-    vals.extend(others.groups())
-else:
-    vals.extend(["0", "0"])
-print("|".join(vals))')" || \
+    parsed_counts="$(printf '%s' "${diff_output}" | python3 -c 'import re, sys; text = sys.stdin.read(); files = re.search(r"^Files:\s+(\d+)\s+new,\s+(\d+)\s+removed(?:,\s+(\d+)\s+changed)?", text, re.M); dirs = re.search(r"^(?:Dirs|Directories):\s+(\d+)\s+new,\s+(\d+)\s+removed(?:,\s+(\d+)\s+changed)?", text, re.M); others = re.search(r"^Others:\s+(\d+)\s+new,\s+(\d+)\s+removed", text, re.M); sys.exit(1) if (not files or not dirs) else None; files_new, files_removed, files_changed = files.group(1), files.group(2), files.group(3) or "0"; dirs_new, dirs_removed, dirs_changed = dirs.group(1), dirs.group(2), dirs.group(3) or "0"; others_new, others_removed = (others.group(1), others.group(2)) if others else ("0", "0"); print("|".join([files_new, files_removed, files_changed, dirs_new, dirs_removed, dirs_changed, others_new, others_removed]))')" || \
       die "Failed to read change counts from restic diff output for snapshots ${old_snapshot_id} and ${new_snapshot_id}."
 
     IFS='|' read -r files_new files_removed files_changed dirs_new dirs_removed dirs_changed others_new others_removed <<< "${parsed_counts}"
