@@ -5,6 +5,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
 tests=(
   "${SCRIPT_DIR}/test_backup_flow.sh"
+  "${SCRIPT_DIR}/test_logs_command.sh"
   "${SCRIPT_DIR}/test_prune_identical_snapshots.sh"
   "${SCRIPT_DIR}/test_restore_defaults.sh"
 )

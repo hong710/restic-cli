@@ -30,6 +30,7 @@ Usage:
   restic-cli remove <server_name>
   restic-cli backup [server_name]
   restic-cli run-due
+  restic-cli logs [server_name] [count]
   restic-cli snapshots [server_name]
   restic-cli diff <server_name> <snapshot_a> <snapshot_b>
   restic-cli prune <server_name>
@@ -43,6 +44,7 @@ Commands:
   remove   Remove server from backup list (keeps repository data)
   backup   Run backups for all configured servers or one server
   run-due  Run backups only for servers whose configured frequency is due
+  logs     Show recent operation logs, optionally filtered by server
   snapshots  Show snapshots for one server or all servers
   diff     Compare two snapshots for one configured server
   prune    Remove older snapshots whose data tree is identical to a newer snapshot
@@ -54,7 +56,7 @@ EOF
 validate_command() {
   local cmd="${1:-}"
   case "${cmd}" in
-    init|setup|servers|remove|backup|run-due|snapshots|diff|prune|restore)
+    init|setup|servers|remove|backup|run-due|logs|snapshots|diff|prune|restore)
       return 0
       ;;
     ""|-h|--help)
@@ -118,6 +120,12 @@ main() {
         die "run-due does not accept extra arguments."
       fi
       run_due_backups
+      ;;
+    logs)
+      if [[ -n "${extra2}" || -n "${extra3}" ]]; then
+        die "logs accepts at most two optional arguments: [server_name] [count]."
+      fi
+      run_logs "${target}" "${extra}"
       ;;
     snapshots)
       if [[ -n "${extra}" ]]; then

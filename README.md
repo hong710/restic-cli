@@ -31,6 +31,7 @@ sudo ln -sf "$(pwd)/restic-cli" /usr/local/bin/restic-cli
 ./restic-cli remove <server_name>
 ./restic-cli backup
 ./restic-cli run-due
+./restic-cli logs
 ./restic-cli snapshots
 ./restic-cli diff <server_name> <snapshot_a> <snapshot_b>
 ./restic-cli prune <server_name>
@@ -41,6 +42,9 @@ Optional target server:
 
 ```bash
 ./restic-cli backup web01
+./restic-cli logs 100
+./restic-cli logs web01
+./restic-cli logs web01 100
 ./restic-cli snapshots web01
 ./restic-cli restore web01
 ./restic-cli restore web01 9e6af64e
@@ -55,6 +59,7 @@ Unit test for the backup flow:
 ```bash
 bash ./tests/run_all.sh
 bash ./tests/test_backup_flow.sh
+bash ./tests/test_logs_command.sh
 bash ./tests/test_prune_identical_snapshots.sh
 bash ./tests/test_restore_defaults.sh
 ```
@@ -156,6 +161,15 @@ Run only servers that are due by configured frequency:
 ./restic-cli run-due
 ```
 
+Show recent operation logs:
+
+```bash
+./restic-cli logs
+./restic-cli logs 100
+./restic-cli logs web01
+./restic-cli logs web01 100
+```
+
 Restore latest snapshot:
 
 ```bash
@@ -220,7 +234,10 @@ Prune older identical snapshots for one server:
 Prune behavior:
 
 - scans snapshots for the server and groups them by normalized staged source paths
-- shows older duplicate snapshots with time and paths
+- marks snapshots as duplicates when data is identical
+- treats snapshots as identical when file add/remove/change counts are zero, directory add/remove counts are zero, and other add/remove counts are zero
+- does not prune when files changed, when directories were added/removed, or when other object add/remove counts are non-zero
+- shows older duplicate snapshots with time, paths, and keep-id
 - asks for confirmation before forgetting older duplicates when run manually
 - runs `restic forget <ids> --prune` only after confirmation
 
@@ -314,6 +331,13 @@ The timer runs every minute and calls `./restic-cli run-due`. The script decides
 - main: `logs/backup.log`
 - backup run: `logs/backup-web01-YYYYMMDD-HHMMSS.log`
 - restore run: `logs/restore-web01-YYYYMMDD-HHMMSS.log`
+
+Readable log command:
+
+- `./restic-cli logs` shows last 30 entries
+- `./restic-cli logs 100` shows last 100 entries
+- `./restic-cli logs web01` filters logs by server
+- `./restic-cli logs web01 100` filters by server and limits output
 
 Log rotation:
 

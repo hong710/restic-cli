@@ -5,6 +5,102 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 source "${SCRIPT_DIR}/common.sh"
 
+# Show recent operation logs in a readable table.
+run_logs() {
+  install_error_trap
+  install_signal_traps
+
+  print_header "restic-cli logs"
+  load_global_config
+
+  local arg1="${1:-}"
+  local arg2="${2:-}"
+  local server_filter=""
+  local limit="30"
+
+  if [[ -n "${arg1}" && "${arg1}" =~ ^[0-9]+$ ]]; then
+    limit="${arg1}"
+    [[ -z "${arg2}" ]] || die "logs usage: logs [server_name] [count]"
+  elif [[ -n "${arg1}" ]]; then
+    server_filter="${arg1}"
+    if [[ -n "${arg2}" ]]; then
+      [[ "${arg2}" =~ ^[0-9]+$ ]] || die "logs count must be a positive number."
+      limit="${arg2}"
+    fi
+  fi
+
+  [[ "${limit}" =~ ^[0-9]+$ ]] || die "logs optional count must be a positive number."
+  ((limit > 0)) || die "logs optional argument must be greater than zero."
+
+  local log_file="${LOG_DIRECTORY}/backup.log"
+  if [[ ! -f "${log_file}" ]]; then
+  msg_info "No operation log found at ${log_file}."
+  return 0
+  fi
+
+  require_command python3
+
+  if [[ -n "${server_filter}" ]]; then
+    msg_info "Showing last ${limit} operation log entries for server ${server_filter}"
+  else
+    msg_info "Showing last ${limit} operation log entries"
+  fi
+
+  python3 -c 'import sys
+
+limit = int(sys.argv[1])
+server_filter = sys.argv[2]
+
+rows = []
+for raw in sys.stdin:
+  line = raw.strip()
+  if not line:
+    continue
+  parts = [segment.strip() for segment in line.split("|")]
+  if len(parts) < 2:
+    rows.append((line, "-", "-", "-", "-", "-"))
+    continue
+
+  timestamp = parts[0]
+  fields = {}
+  detail_segments = []
+
+  for segment in parts[1:]:
+    if "=" in segment:
+      key, value = segment.split("=", 1)
+      fields[key.strip()] = value.strip()
+    else:
+      detail_segments.append(segment)
+
+  detail = " | ".join(item for item in detail_segments if item) or "-"
+  rows.append((
+    timestamp,
+    fields.get("server", "-"),
+    fields.get("operation", "-"),
+    fields.get("status", "-"),
+    fields.get("duration", "-"),
+    detail,
+  ))
+
+if server_filter:
+  rows = [row for row in rows if row[1] == server_filter]
+
+rows = rows[-limit:]
+
+if not rows:
+  if server_filter:
+    print(f"No log entries found for server {server_filter}.")
+  else:
+    print("No log entries found.")
+  raise SystemExit(0)
+
+print("{:<20} {:<18} {:<10} {:<8} {:<10} DETAIL".format("TIME", "SERVER", "OPERATION", "STATUS", "DURATION"))
+print("----                 ------             ---------  ------   --------   ------")
+
+for time_value, server, operation, status, duration, detail in rows:
+  print("{:<20} {:<18} {:<10} {:<8} {:<10} {}".format(time_value[:20], server[:18], operation[:10], status[:8], duration[:10], detail))' "${limit}" "${server_filter}" < "${log_file}"
+}
+
 # Print configured servers with host and policy metadata.
 run_servers() {
   install_error_trap
