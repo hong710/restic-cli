@@ -112,6 +112,16 @@ JSON
       return 0
     fi
 
+    if [[ "${TEST_SCENARIO}" == "dir_added" ]]; then
+      cat <<'JSON'
+[
+  {"time":"2026-07-25T03:16:28","id":"old1","paths":["/home/nfs/restic/restic-cli/tmp/stage-prod.Ejbalm/root/app/finbook/docker/data"],"hostname":"prod","tree":"tree-abc"},
+  {"time":"2026-07-25T04:01:27","id":"new3","paths":["/home/nfs/restic/restic-cli/tmp/stage-prod/root/app/finbook/docker/data"],"hostname":"prod","tree":"tree-dir-added"}
+]
+JSON
+      return 0
+    fi
+
     cat <<'JSON'
 [
   {"time":"2026-07-25T03:16:28","id":"old1","paths":["/home/nfs/restic/restic-cli/tmp/stage-prod.Ejbalm/root/app/finbook/docker/data"],"hostname":"prod","tree":"tree-abc"},
@@ -126,6 +136,15 @@ JSON
       cat <<'EOF'
 Files:           0 new,     0 removed,     0 changed
 Dirs:            0 new,     0 removed,     3 changed
+Others:          0 new,     0 removed
+EOF
+      return 0
+    fi
+
+    if [[ "${TEST_SCENARIO}" == "dir_added" ]]; then
+      cat <<'EOF'
+Files:           0 new,     0 removed,     0 changed
+Dirs:            1 new,     0 removed,     3 changed
 Others:          0 new,     0 removed
 EOF
       return 0
@@ -181,6 +200,14 @@ run_prune_identical_snapshots "prod" yes
 
 if [[ -f "${tmp_root}/forget_args" ]]; then
   fail "changed snapshot content should not be forgotten"
+fi
+
+rm -f -- "${tmp_root}/forget_args"
+TEST_SCENARIO="dir_added"
+run_prune_identical_snapshots "prod" yes
+
+if [[ -f "${tmp_root}/forget_args" ]]; then
+  fail "new directory should prevent pruning as identical"
 fi
 
 printf 'TEST PASS: prune groups staged-path duplicates\n'
